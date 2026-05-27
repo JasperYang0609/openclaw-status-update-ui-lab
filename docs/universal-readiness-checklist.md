@@ -11,7 +11,7 @@ Rules:
 
 ## Step 1 — Universal title fallback
 
-Status: TODO
+Status: DONE
 
 Requirements:
 

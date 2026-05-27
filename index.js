@@ -1,138 +1,13 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-const DEFAULT_TITLE = "OpenClaw 正在處理";
-const DEFAULT_PREFIX = "狀態更新：";
-const DEFAULT_MAX_LENGTH = 240;
-const BOT_NAME_CACHE_TTL_MS = 10 * 60 * 1000;
-const botNameCache = new Map();
-
-function normalizeText(value) {
-  return String(value ?? "")
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function clampLength(text, maxLength) {
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
-}
-
-function resolveRoute(ctx) {
-  const dc = ctx?.deliveryContext ?? {};
-  const channel = typeof dc.channel === "string" && dc.channel.trim()
-    ? dc.channel.trim()
-    : typeof ctx?.messageChannel === "string" && ctx.messageChannel.trim()
-      ? ctx.messageChannel.trim()
-      : undefined;
-  const to = typeof dc.to === "string" && dc.to.trim() ? dc.to.trim() : undefined;
-  if (!channel || !to) return null;
-  return {
-    channel,
-    to,
-    accountId: typeof dc.accountId === "string" && dc.accountId.trim() ? dc.accountId.trim() : null,
-    threadId: dc.threadId ?? null,
-  };
-}
-
-function firstNonEmpty(...values) {
-  for (const value of values) {
-    const text = normalizeText(value);
-    if (text) return text;
-  }
-  return "";
-}
-
-function buildWorkingTitle(name) {
-  const clean = normalizeText(name);
-  return clean ? `${clean} 正在處理` : DEFAULT_TITLE;
-}
-
-function resolveContextIdentityName(ctx, api) {
-  return firstNonEmpty(
-    ctx?.deliveryContext?.botName,
-    ctx?.deliveryContext?.botUsername,
-    ctx?.deliveryContext?.identity?.displayName,
-    ctx?.deliveryContext?.identity?.name,
-    ctx?.identity?.displayName,
-    ctx?.identity?.name,
-    ctx?.agent?.identity?.displayName,
-    ctx?.agent?.identity?.name,
-    ctx?.agentName,
-    api?.config?.identity?.displayName,
-    api?.config?.identity?.name,
-  );
-}
-
-function readPlainDiscordToken(cfg, accountId) {
-  const discord = cfg?.channels?.discord;
-  const accountToken = accountId
-    ? discord?.accounts?.[accountId]?.token
-    : undefined;
-  const token = firstNonEmpty(
-    accountToken,
-    discord?.token,
-    process.env.DISCORD_BOT_TOKEN,
-    process.env.DISCORD_TOKEN,
-  );
-  return token.startsWith("Bot ") ? token.slice(4).trim() : token;
-}
-
-async function resolveDiscordBotName({ cfg, accountId }) {
-  const cacheKey = accountId || "default";
-  const cached = botNameCache.get(cacheKey);
-  if (cached && Date.now() - cached.at < BOT_NAME_CACHE_TTL_MS) return cached.name;
-
-  try {
-    const token = readPlainDiscordToken(cfg, accountId);
-    if (!token) return "";
-
-    const res = await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bot ${token}` },
-    });
-    if (!res.ok) return "";
-
-    const data = await res.json();
-    const name = firstNonEmpty(data?.global_name, data?.username);
-    if (name) botNameCache.set(cacheKey, { name, at: Date.now() });
-    return name;
-  } catch {
-    return "";
-  }
-}
-
-async function resolveStatusTitle({ pluginConfig, route, ctx, api, cfg }) {
-  const configuredTitle = normalizeText(pluginConfig.title);
-  if (configuredTitle) return configuredTitle;
-
-  if (route.channel === "discord") {
-    const discordName = await resolveDiscordBotName({ cfg, accountId: route.accountId });
-    if (discordName) return buildWorkingTitle(discordName);
-  }
-
-  const contextName = resolveContextIdentityName(ctx, api);
-  if (contextName) return buildWorkingTitle(contextName);
-
-  return DEFAULT_TITLE;
-}
-
-function buildFallbackText({ title, prefix, body }) {
-  const line = body.startsWith(prefix) ? body : `${prefix}${body}`;
-  return [
-    `🦾 **${title}**`,
-    `> ${line}`,
-  ].join("\n");
-}
-
-function buildPresentation({ title, body }) {
-  return {
-    title,
-    tone: "info",
-    blocks: [
-      { type: "text", text: `🦾 ${body}` },
-      { type: "context", text: "OpenClaw status update" },
-    ],
-  };
-}
+import {
+  buildFallbackText,
+  buildPresentation,
+  clampLength,
+  defaults,
+  normalizeText,
+  resolveRoute,
+  resolveStatusTitle,
+} from "./src/core.js";
 
 async function sendUiStatus({ adapter, cfg, route, text, presentation, silent }) {
   // Prefer OpenClaw semantic presentation when the channel adapter supports it.
@@ -186,10 +61,10 @@ export default definePluginEntry({
       },
       async execute(_toolCallId, params) {
         const pluginConfig = api.pluginConfig ?? {};
-        const prefix = normalizeText(pluginConfig.prefix || DEFAULT_PREFIX) || DEFAULT_PREFIX;
+        const prefix = normalizeText(pluginConfig.prefix || defaults.DEFAULT_PREFIX) || defaults.DEFAULT_PREFIX;
         const maxLength = Number.isFinite(pluginConfig.maxLength)
           ? Math.max(40, Math.min(1000, Number(pluginConfig.maxLength)))
-          : DEFAULT_MAX_LENGTH;
+          : defaults.DEFAULT_MAX_LENGTH;
         const silent = typeof pluginConfig.silent === "boolean" ? pluginConfig.silent : true;
         const style = pluginConfig.style === "text" ? "text" : "presentation";
 

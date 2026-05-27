@@ -22,9 +22,11 @@
     "index.js",
     "openclaw.plugin.json",
     "README.md",
-    "docs"
+    "docs",
+    "src"
   ],
   "scripts": {
-    "check": "node --check index.js"
+    "check": "node --check index.js",
+    "test": "node tests/title-resolution.test.mjs"
   }
 }

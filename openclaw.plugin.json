@@ -18,7 +18,15 @@
     "properties": {
       "title": {
         "type": "string",
-        "description": "Card title override. Default: auto-detect Discord bot name, then runtime identity, then OpenClaw 正在處理"
+        "description": "Card title override. When set, this exact title is used."
+      },
+      "titleTemplate": {
+        "type": "string",
+        "description": "Title template when a bot/assistant name is resolved. Use {name}. Default: {name} 正在處理"
+      },
+      "fallbackName": {
+        "type": "string",
+        "description": "Neutral fallback name when no bot identity is resolved. Default: 助理"
       },
       "prefix": {
         "type": "string",
