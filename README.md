@@ -23,6 +23,11 @@ Explore an optional UI/UX layer for prettier one-shot status messages first. Edi
 - Prefer graceful fallback over hard failure.
 - Discord first, but keep a portable text fallback for every channel.
 
+
+## Reply policy
+
+Use UI cards only for in-progress status updates. Final assistant conclusions should remain normal text replies, not UI cards.
+
 ## v0.1 proposed behavior
 
 - Keep one status update = one message.
