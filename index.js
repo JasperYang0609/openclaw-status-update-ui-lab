@@ -2,6 +2,8 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 const DEFAULT_TITLE = "OpenClaw 正在處理";
 const DEFAULT_PREFIX = "狀態更新：";
 const DEFAULT_MAX_LENGTH = 240;
+const BOT_NAME_CACHE_TTL_MS = 10 * 60 * 1000;
+const botNameCache = new Map();
 
 function normalizeText(value) {
   return String(value ?? "")
@@ -30,6 +32,75 @@ function resolveRoute(ctx) {
     accountId: typeof dc.accountId === "string" && dc.accountId.trim() ? dc.accountId.trim() : null,
     threadId: dc.threadId ?? null,
   };
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const text = normalizeText(value);
+    if (text) return text;
+  }
+  return "";
+}
+
+function buildWorkingTitle(name) {
+  const clean = normalizeText(name);
+  return clean ? `${clean} 正在處理` : DEFAULT_TITLE;
+}
+
+function resolveContextIdentityName(ctx, api) {
+  return firstNonEmpty(
+    ctx?.deliveryContext?.botName,
+    ctx?.deliveryContext?.botUsername,
+    ctx?.deliveryContext?.identity?.displayName,
+    ctx?.deliveryContext?.identity?.name,
+    ctx?.identity?.displayName,
+    ctx?.identity?.name,
+    ctx?.agent?.identity?.displayName,
+    ctx?.agent?.identity?.name,
+    ctx?.agentName,
+    api?.config?.identity?.displayName,
+    api?.config?.identity?.name,
+  );
+}
+
+async function resolveDiscordBotName({ cfg, accountId }) {
+  const cacheKey = accountId || "default";
+  const cached = botNameCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < BOT_NAME_CACHE_TTL_MS) return cached.name;
+
+  try {
+    const { resolveDiscordAccount } = await import("openclaw/plugin-sdk/discord");
+    const account = resolveDiscordAccount({ cfg, accountId });
+    const token = account?.token;
+    if (!token) return "";
+
+    const res = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bot ${token}` },
+    });
+    if (!res.ok) return "";
+
+    const data = await res.json();
+    const name = firstNonEmpty(data?.global_name, data?.username);
+    if (name) botNameCache.set(cacheKey, { name, at: Date.now() });
+    return name;
+  } catch {
+    return "";
+  }
+}
+
+async function resolveStatusTitle({ pluginConfig, route, ctx, api, cfg }) {
+  const configuredTitle = normalizeText(pluginConfig.title);
+  if (configuredTitle) return configuredTitle;
+
+  if (route.channel === "discord") {
+    const discordName = await resolveDiscordBotName({ cfg, accountId: route.accountId });
+    if (discordName) return buildWorkingTitle(discordName);
+  }
+
+  const contextName = resolveContextIdentityName(ctx, api);
+  if (contextName) return buildWorkingTitle(contextName);
+
+  return DEFAULT_TITLE;
 }
 
 function buildFallbackText({ title, prefix, body }) {
@@ -103,7 +174,6 @@ export default definePluginEntry({
       },
       async execute(_toolCallId, params) {
         const pluginConfig = api.pluginConfig ?? {};
-        const title = normalizeText(pluginConfig.title || DEFAULT_TITLE) || DEFAULT_TITLE;
         const prefix = normalizeText(pluginConfig.prefix || DEFAULT_PREFIX) || DEFAULT_PREFIX;
         const maxLength = Number.isFinite(pluginConfig.maxLength)
           ? Math.max(40, Math.min(1000, Number(pluginConfig.maxLength)))
@@ -136,6 +206,7 @@ export default definePluginEntry({
         }
 
         const cfg = ctx?.getRuntimeConfig?.() ?? ctx?.runtimeConfig ?? ctx?.config ?? api.config;
+        const title = await resolveStatusTitle({ pluginConfig, route, ctx, api, cfg });
         const fallbackText = buildFallbackText({ title, prefix, body });
         const presentation = buildPresentation({ title, body });
 

@@ -28,6 +28,7 @@ Explore an optional UI/UX layer for prettier one-shot status messages first. Edi
 - Keep one status update = one message.
 - Wrap the message in a comfortable UI card when the channel supports semantic presentation.
 - Fallback to a clean Markdown text card when rich UI is unavailable.
+- Use the installed Discord bot name in the card title when available, so the UI adapts for each customer.
 - Do not store message ids.
 - Do not edit previous messages.
 
