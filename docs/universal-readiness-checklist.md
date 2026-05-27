@@ -45,7 +45,7 @@ Tests:
 
 ## Step 3 — Installer/config portability docs
 
-Status: TODO
+Status: DONE
 
 Requirements:
 

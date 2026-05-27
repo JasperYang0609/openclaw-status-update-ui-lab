@@ -46,3 +46,70 @@ Status updates must not expose:
 - secrets / tokens / keys
 - sensitive local paths
 - private customer data beyond the requested task context
+
+
+## Install / enable
+
+This lab plugin is optional. Keep the original `openclaw-status-update-plugin` installed for lightweight plain status updates, and install this repo only when you want UI-wrapped in-progress status cards.
+
+```bash
+openclaw plugins install /path/to/openclaw-status-update-ui-lab
+openclaw plugins enable status-update-ui-lab
+```
+
+Then allow the tool for the active tool profile and restart Gateway:
+
+```json
+{
+  "plugins": {
+    "allow": ["status-update-ui-lab"],
+    "entries": {
+      "status-update-ui-lab": {
+        "enabled": true
+      }
+    }
+  },
+  "tools": {
+    "alsoAllow": ["status-update-ui-lab"]
+  }
+}
+```
+
+```bash
+openclaw gateway restart
+openclaw plugins doctor
+```
+
+## Optional config
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "status-update-ui-lab": {
+        "enabled": true,
+        "config": {
+          "titleTemplate": "{name} 正在處理",
+          "fallbackName": "助理",
+          "prefix": "狀態更新：",
+          "maxLength": 240,
+          "silent": true,
+          "style": "presentation"
+        }
+      }
+    }
+  }
+}
+```
+
+Notes:
+
+- `title` is an exact override. If set, it bypasses auto-detected bot names.
+- `titleTemplate` uses `{name}` and is preferred for customer installs.
+- `fallbackName` is used when no bot/platform identity can be resolved.
+- On Discord, the plugin tries to resolve the bot username from the runtime token. It never logs or returns the token.
+- On non-Discord channels, rich UI may degrade to a clean text card.
+
+## Usage boundary
+
+Use `status_update_ui` only for in-progress status updates. Final assistant conclusions should remain normal text replies.
