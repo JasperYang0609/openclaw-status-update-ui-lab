@@ -60,7 +60,7 @@ Tests:
 
 ## Step 4 — Graceful failure contract
 
-Status: TODO
+Status: DONE
 
 Requirements:
 
