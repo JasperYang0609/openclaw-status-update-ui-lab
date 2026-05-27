@@ -63,15 +63,27 @@ function resolveContextIdentityName(ctx, api) {
   );
 }
 
+function readPlainDiscordToken(cfg, accountId) {
+  const discord = cfg?.channels?.discord;
+  const accountToken = accountId
+    ? discord?.accounts?.[accountId]?.token
+    : undefined;
+  const token = firstNonEmpty(
+    accountToken,
+    discord?.token,
+    process.env.DISCORD_BOT_TOKEN,
+    process.env.DISCORD_TOKEN,
+  );
+  return token.startsWith("Bot ") ? token.slice(4).trim() : token;
+}
+
 async function resolveDiscordBotName({ cfg, accountId }) {
   const cacheKey = accountId || "default";
   const cached = botNameCache.get(cacheKey);
   if (cached && Date.now() - cached.at < BOT_NAME_CACHE_TTL_MS) return cached.name;
 
   try {
-    const { resolveDiscordAccount } = await import("openclaw/plugin-sdk/discord");
-    const account = resolveDiscordAccount({ cfg, accountId });
-    const token = account?.token;
+    const token = readPlainDiscordToken(cfg, accountId);
     if (!token) return "";
 
     const res = await fetch("https://discord.com/api/v10/users/@me", {
