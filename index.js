@@ -1,6 +1,4 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { Type } from "typebox";
-
 const DEFAULT_TITLE = "OpenClaw 正在處理";
 const DEFAULT_PREFIX = "狀態更新：";
 const DEFAULT_MAX_LENGTH = 240;
@@ -90,13 +88,19 @@ export default definePluginEntry({
       name: "status_update_ui",
       description:
         "Send a concise Traditional Chinese progress update as a comfortable one-shot UI card in the current conversation. Do not include chain-of-thought, raw commands, secrets, or sensitive local paths.",
-      parameters: Type.Object({
-        message: Type.String({
-          description:
-            "Short Traditional Chinese status summary. Mention current phase, key blocker/change, and next step when useful. Do not include raw commands, secrets, or chain-of-thought.",
-          minLength: 1,
-        }),
-      }),
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["message"],
+        properties: {
+          message: {
+            type: "string",
+            minLength: 1,
+            description:
+              "Short Traditional Chinese status summary. Mention current phase, key blocker/change, and next step when useful. Do not include raw commands, secrets, or chain-of-thought.",
+          },
+        },
+      },
       async execute(_toolCallId, params) {
         const pluginConfig = api.pluginConfig ?? {};
         const title = normalizeText(pluginConfig.title || DEFAULT_TITLE) || DEFAULT_TITLE;
