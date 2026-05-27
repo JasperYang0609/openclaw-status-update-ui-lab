@@ -54,8 +54,10 @@ assert.equal(customFallback, '我的助理 正在處理');
 const fallbackText = buildFallbackText({ title: '安賽小助手 正在處理', prefix: '狀態更新：', body: '測試中' });
 assert.match(fallbackText, /安賽小助手 正在處理/);
 
-const presentation = buildPresentation({ title: '安賽小助手 正在處理', body: '測試中' });
-assert.match(presentation.title, /安賽小助手 正在處理/);
+const presentation = buildPresentation({ fallbackText });
+assert.equal(presentation.title, undefined);
+assert.equal(presentation.blocks.length, 1);
 assert.match(presentation.blocks[0].text, /安賽小助手 正在處理/);
+assert.match(presentation.blocks[0].text, /狀態更新：測試中/);
 
 console.log('title-resolution tests passed');

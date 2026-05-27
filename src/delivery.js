@@ -10,11 +10,13 @@ import {
 
 async function sendUiStatus({ adapter, cfg, route, text, presentation, silent }) {
   if (adapter?.sendPayload && adapter?.renderPresentation) {
-    const payload = { text, presentation };
+    // For rich presentation, keep the visible content in one presentation block only.
+    // Passing fallback text as payload.text makes Discord render duplicate blocks.
+    const payload = { text: "", presentation };
     const baseCtx = {
       cfg,
       to: route.to,
-      text,
+      text: "",
       payload,
       accountId: route.accountId,
       threadId: route.threadId,
@@ -24,7 +26,7 @@ async function sendUiStatus({ adapter, cfg, route, text, presentation, silent })
     return await adapter.sendPayload({
       cfg,
       to: route.to,
-      text: rendered.text ?? text,
+      text: rendered.text ?? "",
       payload: rendered,
       accountId: route.accountId,
       threadId: route.threadId,
@@ -70,7 +72,7 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
   const cfg = ctx?.getRuntimeConfig?.() ?? ctx?.runtimeConfig ?? ctx?.config ?? api.config;
   const title = await resolveStatusTitle({ pluginConfig, route, ctx, api, cfg });
   const fallbackText = buildFallbackText({ title, prefix, body });
-  const presentation = buildPresentation({ title, body });
+  const presentation = buildPresentation({ fallbackText });
 
   let result = null;
   if (style === "presentation") {

@@ -3,7 +3,7 @@
   "kind": "tools",
   "name": "Status Update UI Lab",
   "description": "Experimental optional UI wrapper for status updates. Sends one-shot comfortable status cards without editing previous messages.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "contracts": {
     "tools": [
       "status_update_ui"
