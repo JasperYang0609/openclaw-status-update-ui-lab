@@ -28,7 +28,7 @@ Tests:
 
 ## Step 2 — Multi-source identity resolution
 
-Status: TODO
+Status: DONE
 
 Requirements:
 
