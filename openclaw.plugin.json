@@ -1,0 +1,47 @@
+{
+  "id": "status-update-ui-lab",
+  "kind": "tools",
+  "name": "Status Update UI Lab",
+  "description": "Experimental optional UI wrapper for status updates. Sends one-shot comfortable status cards without editing previous messages.",
+  "version": "0.1.0",
+  "contracts": {
+    "tools": [
+      "status_update_ui"
+    ]
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Card title. Default: OpenClaw 正在處理"
+      },
+      "prefix": {
+        "type": "string",
+        "description": "Fallback text prefix. Default: 狀態更新："
+      },
+      "maxLength": {
+        "type": "number",
+        "description": "Maximum status text length. Default: 240"
+      },
+      "silent": {
+        "type": "boolean",
+        "description": "Send updates silently when supported. Default: true"
+      },
+      "style": {
+        "type": "string",
+        "enum": ["presentation", "text"],
+        "description": "presentation uses OpenClaw semantic UI when available; text uses a Markdown fallback card. Default: presentation"
+      }
+    }
+  },
+  "toolMetadata": {
+    "status_update_ui": {
+      "optional": false
+    }
+  }
+}

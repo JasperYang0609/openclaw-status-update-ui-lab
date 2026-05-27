@@ -7,7 +7,7 @@ The original plugin should stay lightweight and broadly usable for customers who
 
 ## Goal
 
-Explore an optional UI/UX layer for richer task status display, especially Discord editable progress messages.
+Explore an optional UI/UX layer for prettier one-shot status messages first. Editable progress messages are deferred until the simple UI wrapper proves useful.
 
 ## Non-goals
 
@@ -18,15 +18,18 @@ Explore an optional UI/UX layer for richer task status display, especially Disco
 ## Initial direction
 
 - Keep the base `status_update(message)` experience simple.
-- Prototype an optional editable-message mode.
+- Prototype a one-shot UI wrapper around the existing status update behavior.
+- Do not edit previous messages in v0.1.
 - Prefer graceful fallback over hard failure.
-- Discord first; other channels can fallback to plain sends.
+- Discord first, but keep a portable text fallback for every channel.
 
-## Proposed modes
+## v0.1 proposed behavior
 
-- `send`: existing behavior; every update sends a short status message.
-- `edit`: first update sends one progress message, later updates edit the same message when possible.
-- `auto`: use `edit` only when the channel adapter supports it; otherwise fallback to `send`.
+- Keep one status update = one message.
+- Wrap the message in a comfortable UI card when the channel supports semantic presentation.
+- Fallback to a clean Markdown text card when rich UI is unavailable.
+- Do not store message ids.
+- Do not edit previous messages.
 
 ## Safety baseline
 

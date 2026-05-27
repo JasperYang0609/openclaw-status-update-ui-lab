@@ -1,0 +1,33 @@
+{
+  "name": "openclaw-status-update-ui-lab",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Experimental OpenClaw status update UI wrapper for comfortable one-shot status cards.",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "typebox": "1.1.37"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.5.7"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  },
+  "files": [
+    "index.js",
+    "openclaw.plugin.json",
+    "README.md",
+    "docs"
+  ],
+  "scripts": {
+    "check": "node --check index.js"
+  }
+}
