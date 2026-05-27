@@ -5,6 +5,16 @@ Experimental UI/UX research repo for OpenClaw task status display.
 This repo is intentionally separate from `openclaw-status-update-plugin`.
 The original plugin should stay lightweight and broadly usable for customers who only need plain status updates.
 
+
+## Standalone behavior
+
+This plugin is standalone. Customers do **not** need to install `openclaw-status-update-plugin` first.
+
+- `openclaw-status-update-plugin` provides the lightweight plain-text `status_update` tool.
+- This repo provides the UI-wrapped `status_update_ui` tool.
+- Install either one depending on the customer experience you want.
+- Installing both is allowed, but not required.
+
 ## Goal
 
 Explore an optional UI/UX layer for prettier one-shot status messages first. Editable progress messages are deferred until the simple UI wrapper proves useful.
@@ -50,7 +60,7 @@ Status updates must not expose:
 
 ## Install / enable
 
-This lab plugin is optional. Keep the original `openclaw-status-update-plugin` installed for lightweight plain status updates, and install this repo only when you want UI-wrapped in-progress status cards.
+This plugin is optional and standalone. Install it when you want UI-wrapped in-progress status cards. The original `openclaw-status-update-plugin` is not required.
 
 ```bash
 openclaw plugins install /path/to/openclaw-status-update-ui-lab
