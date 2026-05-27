@@ -123,3 +123,13 @@ Notes:
 ## Usage boundary
 
 Use `status_update_ui` only for in-progress status updates. Final assistant conclusions should remain normal text replies.
+
+Recommended unified prompt rule:
+
+```text
+過程狀態一律優先使用 `status_update_ui`。
+不要主動使用 `status_update`，除非 `status_update_ui` 不可用或失敗。
+最後正式結論必須用一般文字回覆，不要包成 UI 卡。
+```
+
+If the original `status_update` plugin is also installed, keep it as a fallback only. Do not ask the model to use both tools as primary status channels.
