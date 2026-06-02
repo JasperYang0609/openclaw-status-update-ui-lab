@@ -133,3 +133,9 @@ Recommended unified prompt rule:
 ```
 
 If the original `status_update` plugin is also installed, keep it as a fallback only. Do not ask the model to use both tools as primary status channels.
+
+## Maintainer use of Codex
+
+This project is maintained as an OpenClaw ecosystem experiment for status update UI/UX. We plan to use Codex to review pull requests, expand UI fallback tests, check channel compatibility, and turn validated experiments into documented release candidates.
+
+API-assisted maintenance should focus on safe UI behavior, regression tests, accessibility-friendly copy, documentation updates, and release notes. Codex should not be used to expose hidden chain-of-thought, secrets, raw commands, or private customer context in status cards.
