@@ -17,14 +17,35 @@ export function clampLength(text, maxLength) {
   return `${text.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
 }
 
+export function parseSessionKeyRoute(sessionKey) {
+  if (typeof sessionKey !== "string") return null;
+  const trimmed = sessionKey.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^agent:[^:]+:([^:]+):(.+)$/);
+  if (!match) return null;
+  const channel = match[1].trim();
+  const to = match[2].trim();
+  if (!channel || !to) return null;
+  return { channel, to };
+}
+
 export function resolveRoute(ctx) {
   const dc = ctx?.deliveryContext ?? {};
-  const channel = typeof dc.channel === "string" && dc.channel.trim()
+  let channel = typeof dc.channel === "string" && dc.channel.trim()
     ? dc.channel.trim()
     : typeof ctx?.messageChannel === "string" && ctx.messageChannel.trim()
       ? ctx.messageChannel.trim()
       : undefined;
-  const to = typeof dc.to === "string" && dc.to.trim() ? dc.to.trim() : undefined;
+  let to = typeof dc.to === "string" && dc.to.trim() ? dc.to.trim() : undefined;
+
+  if (!channel || !to) {
+    const parsed = parseSessionKeyRoute(ctx?.sessionKey);
+    if (parsed) {
+      if (!channel) channel = parsed.channel;
+      if (!to) to = parsed.to;
+    }
+  }
+
   if (!channel || !to) return null;
   return {
     channel,

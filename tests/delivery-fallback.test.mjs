@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { executeStatusUpdateUi } from '../src/delivery.js';
+import { parseSessionKeyRoute, resolveRoute } from '../src/core.js';
 
 function makeCtx() {
   return {
@@ -38,6 +39,35 @@ assert.match(textFailureResult.content[0].text, /text fallback send failed/);
 const noRouteResult = await executeStatusUpdateUi({ api: richFailureApi, ctx: {}, params: { message: 'no route' } });
 assert.equal(noRouteResult.isError, true);
 assert.match(noRouteResult.content[0].text, /no current delivery route/);
+
+// sessionKey fallback: when deliveryContext is empty, resolveRoute should parse
+// the sessionKey so MCP runtimes that don't inject custom headers (e.g. claude-cli)
+// can still deliver in-progress status cards.
+assert.deepEqual(
+  parseSessionKeyRoute('agent:main:discord:channel:1512756985181900820'),
+  { channel: 'discord', to: 'channel:1512756985181900820' },
+);
+assert.equal(parseSessionKeyRoute(''), null);
+assert.equal(parseSessionKeyRoute('not-an-agent-key'), null);
+assert.equal(parseSessionKeyRoute(null), null);
+
+const sessionKeyRoute = resolveRoute({ sessionKey: 'agent:main:discord:channel:abc' });
+assert.deepEqual(sessionKeyRoute, { channel: 'discord', to: 'channel:abc', accountId: null, threadId: null });
+
+const sessionKeyFallbackResult = await executeStatusUpdateUi({
+  api: richFailureApi,
+  ctx: { sessionKey: 'agent:main:discord:channel:fallback-target' },
+  params: { message: 'session fallback' },
+});
+assert.equal(sessionKeyFallbackResult.isError, undefined);
+assert.match(sessionKeyFallbackResult.content[0].text, /status_update_ui sent \(discord/);
+
+// deliveryContext still wins over sessionKey when both are present.
+const overrideRoute = resolveRoute({
+  deliveryContext: { channel: 'telegram', to: 'chat:42', accountId: 'acc-1' },
+  sessionKey: 'agent:main:discord:channel:abc',
+});
+assert.deepEqual(overrideRoute, { channel: 'telegram', to: 'chat:42', accountId: 'acc-1', threadId: null });
 
 const adapterLoadFailureApi = {
   pluginConfig: {},
