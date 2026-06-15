@@ -36,6 +36,8 @@ Explore an optional UI/UX layer for prettier one-shot status messages first. Edi
 
 ## Reply policy
 
+**Every assistant turn must send at least one `status_update_ui` card**, regardless of how many tool calls are made and including pure conversational turns where no command is executed. Treat this as a required pre-send gate, not a courtesy.
+
 Use UI cards only for in-progress status updates. Final assistant conclusions should remain normal text replies, not UI cards.
 
 ## v0.1 proposed behavior
@@ -127,12 +129,33 @@ Use `status_update_ui` only for in-progress status updates. Final assistant conc
 Recommended unified prompt rule:
 
 ```text
+每個 assistant turn 至少送 1 張 `status_update_ui` 卡，不看 tool call 數量；
+即使該回合只是純文字討論、沒有執行任何操作，也要送一張說明當下立場或下一步。
 過程狀態一律優先使用 `status_update_ui`。
 不要主動使用 `status_update`，除非 `status_update_ui` 不可用或失敗。
 最後正式結論必須用一般文字回覆，不要包成 UI 卡。
 ```
 
 If the original `status_update` plugin is also installed, keep it as a fallback only. Do not ask the model to use both tools as primary status channels.
+
+## Install-time agent hook
+
+A plugin alone is not a global middleware. To make the "every turn" rule reliable across model switches and session resets, installation should write a marker block into the target agent instructions (`AGENTS.md` or equivalent always-loaded instruction file).
+
+Use the bundled helper:
+
+```bash
+python3 scripts/install_agent_hook.py AGENTS.md
+```
+
+The helper is idempotent: re-running it replaces only the marker block above. For uninstall, remove the marker block from `AGENTS.md`.
+
+The installed marker block enforces:
+
+- Every assistant turn sends at least one `status_update_ui` card.
+- UI cards are for in-progress status only; final conclusions stay plain text.
+- `status_update` is fallback only.
+- Cards must not expose chain-of-thought, raw commands, secrets, or sensitive paths.
 
 ## Maintainer use of Codex
 
