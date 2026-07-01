@@ -36,7 +36,7 @@ Explore an optional UI/UX layer for prettier one-shot status messages first. Edi
 
 ## Reply policy
 
-**Every assistant turn must send at least one `status_update_ui` card**, regardless of how many tool calls are made and including pure conversational turns where no command is executed. Treat this as a required pre-send gate, not a courtesy.
+**Every assistant turn must send at least one `status_update_ui` card**, including short tasks and pure-text/conversational turns where no command is executed. Treat this as a required pre-send gate, not a courtesy. Keep the card short, specific, and safe.
 
 Use UI cards only for in-progress status updates. Final assistant conclusions should remain normal text replies, not UI cards.
 
@@ -129,8 +129,8 @@ Use `status_update_ui` only for in-progress status updates. Final assistant conc
 Recommended unified prompt rule:
 
 ```text
-每個 assistant turn 至少送 1 張 `status_update_ui` 卡，不看 tool call 數量；
-即使該回合只是純文字討論、沒有執行任何操作，也要送一張說明當下立場或下一步。
+每個 assistant turn 至少 1 張 `status_update_ui`，包含短任務/純文字回合；
+內容要短、具體、安全，用來說明當下立場、處理方向或下一步。
 過程狀態一律優先使用 `status_update_ui`。
 不要主動使用 `status_update`，除非 `status_update_ui` 不可用或失敗。
 最後正式結論必須用一般文字回覆，不要包成 UI 卡。

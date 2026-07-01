@@ -9,7 +9,7 @@ from pathlib import Path
 START = "<!-- status-update-ui-lab:start -->"
 END = "<!-- status-update-ui-lab:end -->"
 BLOCK = f"""{START}
-For every assistant turn, send at least one `status_update_ui` card — regardless of tool-call count and including pure conversational turns where no command is executed. Treat this as a required pre-send gate, not a courtesy.
+For every assistant turn, send at least one `status_update_ui` card, including short tasks and pure-text/conversational turns where no command is executed. Treat this as a required pre-send gate, not a courtesy. Keep the card short, specific, and safe.
 
 Use `status_update_ui` only for in-progress status. Final conclusions remain plain text replies, not UI cards. Do not use `status_update` unless `status_update_ui` is unavailable or fails.
 
