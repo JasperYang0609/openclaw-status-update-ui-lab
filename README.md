@@ -162,3 +162,20 @@ The installed marker block enforces:
 This project is maintained as an OpenClaw ecosystem experiment for status update UI/UX. We plan to use Codex to review pull requests, expand UI fallback tests, check channel compatibility, and turn validated experiments into documented release candidates.
 
 API-assisted maintenance should focus on safe UI behavior, regression tests, accessibility-friendly copy, documentation updates, and release notes. Codex should not be used to expose hidden chain-of-thought, secrets, raw commands, or private customer context in status cards.
+## Capability preflight
+
+Run the static contract check after install or upgrade:
+
+```bash
+npm run preflight
+```
+
+Before relying on the tool in parent and native subagent sessions, check every real session key with the read-only Gateway inventory:
+
+```bash
+node scripts/status-ui-preflight.mjs \
+  --session-key 'agent:main:discord:channel:PARENT_ID' \
+  --session-key 'agent:main:subagent:CHILD_ID'
+```
+
+The preflight calls `tools.effective` only. It never invokes `status_update_ui` and never sends a message. It fails closed when the tool is missing, owned by another plugin, the session is unavailable, or the Gateway query fails. A static-only PASS is not proof that native subagent binding works; supply both parent and child session keys for deployment acceptance.
