@@ -23,10 +23,12 @@
     "openclaw.plugin.json",
     "README.md",
     "docs",
-    "src"
+    "src",
+    "scripts"
   ],
   "scripts": {
     "check": "node --check index.js",
-    "test": "node tests/title-resolution.test.mjs && node tests/identity-resolution.test.mjs && node tests/delivery-fallback.test.mjs"
+    "test": "node tests/title-resolution.test.mjs && node tests/identity-resolution.test.mjs && node tests/delivery-fallback.test.mjs && node tests/capability-preflight.test.mjs",
+    "preflight": "node scripts/status-ui-preflight.mjs"
   }
 }
