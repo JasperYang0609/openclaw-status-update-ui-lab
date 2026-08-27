@@ -7,8 +7,16 @@ import {
   resolveRoute,
   resolveStatusTitle,
 } from "./core.js";
+import {
+  buildAttemptKey,
+  createDeliveryGuard,
+  resolveGuardConfig,
+  resolveSessionIdentity,
+} from "./delivery-guard.js";
 
-async function sendUiStatus({ adapter, cfg, route, text, presentation, silent }) {
+const deliveryGuard = createDeliveryGuard();
+
+async function renderUiStatus({ adapter, cfg, route, presentation, silent }) {
   if (adapter?.sendPayload && adapter?.renderPresentation) {
     // For rich presentation, keep the visible content in one presentation block only.
     // Passing fallback text as payload.text makes Discord render duplicate blocks.
@@ -22,18 +30,21 @@ async function sendUiStatus({ adapter, cfg, route, text, presentation, silent })
       threadId: route.threadId,
       silent,
     };
-    const rendered = await adapter.renderPresentation({ payload, presentation, ctx: baseCtx }) ?? payload;
-    return await adapter.sendPayload({
-      cfg,
-      to: route.to,
-      text: rendered.text ?? "",
-      payload: rendered,
-      accountId: route.accountId,
-      threadId: route.threadId,
-      silent,
-    });
+    return await adapter.renderPresentation({ payload, presentation, ctx: baseCtx }) ?? payload;
   }
   return null;
+}
+
+async function dispatchPayload({ adapter, cfg, route, rendered, silent }) {
+  return await adapter.sendPayload({
+    cfg,
+    to: route.to,
+    text: rendered.text ?? "",
+    payload: rendered,
+    accountId: route.accountId,
+    threadId: route.threadId,
+    silent,
+  });
 }
 
 function toolText(text, isError = false) {
@@ -58,14 +69,27 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
   const route = resolveRoute(ctx);
   if (!route) return toolText("status_update_ui failed: no current delivery route is available.", true);
 
+  const guardConfig = resolveGuardConfig(pluginConfig);
+  const attemptKey = buildAttemptKey({
+    route,
+    sessionIdentity: resolveSessionIdentity(ctx),
+    message: body,
+  });
+  const claim = deliveryGuard.acquire(attemptKey, guardConfig);
+  if (claim.suppressed) {
+    return toolText(`status_update_ui suppressed a recent duplicate (${claim.state}, attempt ${claim.attemptId}).`);
+  }
+
   let adapter;
   try {
     adapter = await api.runtime.channel.outbound.loadAdapter(route.channel);
   } catch {
+    deliveryGuard.release(attemptKey);
     return toolText(`status_update_ui failed: channel '${route.channel}' adapter could not be loaded.`, true);
   }
 
   if (!adapter?.sendText) {
+    deliveryGuard.release(attemptKey);
     return toolText(`status_update_ui failed: channel '${route.channel}' does not expose sendText.`, true);
   }
 
@@ -76,14 +100,30 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
 
   let result = null;
   if (style === "presentation") {
+    let rendered = null;
     try {
-      result = await sendUiStatus({ adapter, cfg, route, text: fallbackText, presentation, silent });
+      rendered = await renderUiStatus({ adapter, cfg, route, presentation, silent });
     } catch {
-      result = null;
+      // Rendering happens before platform I/O, so a plain-text fallback is safe.
+      rendered = null;
+    }
+
+    if (rendered) {
+      deliveryGuard.mark(attemptKey, "dispatching");
+      try {
+        result = await dispatchPayload({ adapter, cfg, route, rendered, silent });
+      } catch {
+        deliveryGuard.mark(attemptKey, "unknown");
+        return toolText(
+          `status_update_ui delivery outcome is unknown; it may already be visible, so no fallback was sent (attempt ${claim.attemptId}).`,
+          true,
+        );
+      }
     }
   }
 
   if (!result) {
+    deliveryGuard.mark(attemptKey, "dispatching");
     try {
       result = await adapter.sendText({
         cfg,
@@ -94,12 +134,28 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
         silent,
       });
     } catch {
-      return toolText("status_update_ui failed: text fallback send failed.", true);
+      deliveryGuard.mark(attemptKey, "unknown");
+      return toolText(
+        `status_update_ui delivery outcome is unknown; it may already be visible, so no retry was attempted (attempt ${claim.attemptId}).`,
+        true,
+      );
     }
   }
 
   const messageId = result?.messageId ?? result?.id;
+  if (!messageId) {
+    deliveryGuard.mark(attemptKey, "unknown");
+    return toolText(
+      `status_update_ui delivery outcome is unknown because no message identity was returned (attempt ${claim.attemptId}).`,
+      true,
+    );
+  }
+  deliveryGuard.mark(attemptKey, "confirmed");
   return toolText(messageId
     ? `status_update_ui sent (${route.channel}, message ${messageId}).`
     : `status_update_ui sent (${route.channel}).`);
+}
+
+export function clearDeliveryGuardForTest() {
+  deliveryGuard.clear();
 }

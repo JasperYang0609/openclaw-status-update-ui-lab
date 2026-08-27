@@ -3,7 +3,7 @@
   "kind": "tools",
   "name": "Status Update UI Lab",
   "description": "Standalone optional UI wrapper for status updates. Sends one-shot comfortable progress cards without requiring the original status-update plugin.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "contracts": {
     "tools": [
       "status_update_ui"
@@ -47,6 +47,18 @@
           "text"
         ],
         "description": "presentation uses OpenClaw semantic UI when available; text uses a Markdown fallback card. Default: presentation"
+      },
+      "dedupeWindowMs": {
+        "type": "number",
+        "minimum": 1000,
+        "maximum": 120000,
+        "description": "In-process duplicate suppression window in milliseconds. Default: 30000"
+      },
+      "guardMaxEntries": {
+        "type": "number",
+        "minimum": 100,
+        "maximum": 10000,
+        "description": "Maximum in-process delivery guard entries. Default: 1000"
       }
     }
   },

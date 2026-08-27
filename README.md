@@ -106,7 +106,9 @@ openclaw plugins doctor
           "prefix": "狀態更新：",
           "maxLength": 240,
           "silent": true,
-          "style": "presentation"
+          "style": "presentation",
+          "dedupeWindowMs": 30000,
+          "guardMaxEntries": 1000
         }
       }
     }
@@ -121,6 +123,14 @@ Notes:
 - `fallbackName` is used when no bot/platform identity can be resolved.
 - On Discord, the plugin tries to resolve the bot username from the runtime token. It never logs or returns the token.
 - On non-Discord channels, rich UI may degrade to a clean text card.
+- `dedupeWindowMs` suppresses identical attempts only within the same account, channel, target, thread, and Session. Values are bounded to 1–120 seconds.
+- `guardMaxEntries` bounds the in-memory attempt guard. Values are bounded to 100–10,000 entries.
+
+## Unknown-delivery safety
+
+Starting with v0.2.2, an adapter error after platform dispatch is treated as an unknown delivery outcome. The plugin does not immediately send a text fallback because the rich card may already be visible. A short, in-process guard also suppresses identical retries from the same Session and route while allowing other Sessions and targets to continue normally.
+
+The guard is intentionally not a durable ledger. Exact reconciliation across Gateway restarts or processes belongs in OpenClaw core delivery infrastructure.
 
 ## Usage boundary
 
@@ -162,6 +172,12 @@ The installed marker block enforces:
 This project is maintained as an OpenClaw ecosystem experiment for status update UI/UX. We plan to use Codex to review pull requests, expand UI fallback tests, check channel compatibility, and turn validated experiments into documented release candidates.
 
 API-assisted maintenance should focus on safe UI behavior, regression tests, accessibility-friendly copy, documentation updates, and release notes. Codex should not be used to expose hidden chain-of-thought, secrets, raw commands, or private customer context in status cards.
+
+## Releases
+
+- `v0.2.2`: prevents automatic fallback after ambiguous platform dispatch failures, adds bounded in-process duplicate suppression isolated by Session and route, and adds concurrency/TTL/capacity regression coverage.
+- `v0.2.1`: adds capability preflight and universal route/title fallback checks.
+
 ## Capability preflight
 
 Run the static contract check after install or upgrade:

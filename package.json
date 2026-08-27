@@ -1,6 +1,6 @@
 {
   "name": "openclaw-status-update-ui-lab",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "Standalone OpenClaw status update UI wrapper for comfortable one-shot progress cards.",
   "license": "UNLICENSED",
@@ -27,8 +27,8 @@
     "scripts"
   ],
   "scripts": {
-    "check": "node --check index.js",
-    "test": "node tests/title-resolution.test.mjs && node tests/identity-resolution.test.mjs && node tests/delivery-fallback.test.mjs && node tests/capability-preflight.test.mjs",
+    "check": "node --check index.js && node --check src/core.js && node --check src/delivery.js && node --check src/delivery-guard.js",
+    "test": "node tests/title-resolution.test.mjs && node tests/identity-resolution.test.mjs && node tests/delivery-fallback.test.mjs && node tests/delivery-dedup.test.mjs && node tests/capability-preflight.test.mjs",
     "preflight": "node scripts/status-ui-preflight.mjs"
   }
 }

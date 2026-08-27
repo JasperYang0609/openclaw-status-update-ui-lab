@@ -57,7 +57,7 @@ Discord 曾出現狀態卡已送達，但傳輸層未回傳成功確認的情況
 ### 3. Short-window attempt guard
 
 - 以 module-local Map 保存最近 attempt 摘要與狀態，TTL 預設 30 秒。
-- 同一摘要鍵在 TTL 內若為 `dispatching`、`confirmed` 或 `unknown`，後續呼叫回傳 suppressed／unknown，不再送出。
+- 同一摘要鍵在 TTL 內若為 `prepared`、`dispatching`、`confirmed` 或 `unknown`，後續呼叫回傳 suppressed／unknown，不再送出；這也涵蓋同時抵達的重複呼叫。
 - TTL 清理必須有最大筆數上限，避免記憶體無界增長。
 - 不同 Session、thread、target、account 或不同文字摘要必須互不影響。
 
@@ -99,4 +99,3 @@ plugin 的短窗 guard 只處理同一程序內的重複呼叫。跨程序、Gat
 - 實作於獨立修復分支，通過測試後 commit、tag `v0.2.2` 並 push。
 - 發布前比對 tarball contents，不包含測試資料、秘密或本機檔案。
 - 回復方式：客戶可 pin `v0.2.1`；程式碼可 revert v0.2.2 implementation commit。
-

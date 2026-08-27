@@ -50,8 +50,19 @@ Risk: frequent edits/sends hit Discord limits.
 
 Mitigation:
 - throttle updates
-- dedupe identical status text
+- dedupe identical status text within the same account, route, thread, and Session
 - respect Retry-After on 429
+
+### ambiguous delivery acknowledgement
+
+Risk: Discord accepts a card but the HTTP response is lost. Treating every exception as a definite failure and sending a fallback creates a duplicate.
+
+Mitigation:
+- classify adapter exceptions after dispatch as an unknown outcome
+- never send an automatic fallback for an unknown outcome
+- use a bounded, short-lived in-process attempt guard
+- keep Sessions and routes isolated in the dedupe key
+- leave cross-process durable reconciliation to OpenClaw core
 
 Difficulty: Medium
 

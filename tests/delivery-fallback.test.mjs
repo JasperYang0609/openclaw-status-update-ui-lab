@@ -34,7 +34,7 @@ const textFailureApi = {
 };
 const textFailureResult = await executeStatusUpdateUi({ api: textFailureApi, ctx: makeCtx(), params: { message: '測試失敗' } });
 assert.equal(textFailureResult.isError, true);
-assert.match(textFailureResult.content[0].text, /text fallback send failed/);
+assert.match(textFailureResult.content[0].text, /delivery outcome is unknown/);
 
 const noRouteResult = await executeStatusUpdateUi({ api: richFailureApi, ctx: {}, params: { message: 'no route' } });
 assert.equal(noRouteResult.isError, true);
