@@ -55,6 +55,43 @@ assert.equal(suppressedResult.isError, undefined);
 assert.match(suppressedResult.content[0].text, /suppressed a recent duplicate \(unknown/);
 assert.equal(unknownPayloadCalls, 1);
 
+// A null/undefined rich result is also ambiguous and must not trigger fallback.
+clearDeliveryGuardForTest();
+let emptyResultFallbackCalls = 0;
+const emptyResultApi = makeApi({
+  sendPayload: async () => undefined,
+  sendText: async () => {
+    emptyResultFallbackCalls += 1;
+    return { messageId: 'must-not-send-empty-result' };
+  },
+});
+const emptyResult = await executeStatusUpdateUi({
+  api: emptyResultApi,
+  ctx: makeCtx(),
+  params: { message: '空回應' },
+});
+assert.equal(emptyResult.isError, true);
+assert.match(emptyResult.content[0].text, /no delivery result was returned/);
+assert.equal(emptyResultFallbackCalls, 0);
+
+// Runtime contexts that expose sessionId instead of sessionKey still get isolation.
+clearDeliveryGuardForTest();
+let sessionIdCalls = 0;
+const sessionIdApi = makeApi({
+  sendPayload: async () => {
+    sessionIdCalls += 1;
+    throw new Error('ambiguous');
+  },
+  sendText: async () => { throw new Error('unexpected fallback'); },
+});
+const sessionIdCtx = makeCtx();
+delete sessionIdCtx.sessionKey;
+sessionIdCtx.sessionId = 'runtime-session-id';
+await executeStatusUpdateUi({ api: sessionIdApi, ctx: sessionIdCtx, params: { message: 'sessionId 進度' } });
+const sessionIdRetry = await executeStatusUpdateUi({ api: sessionIdApi, ctx: sessionIdCtx, params: { message: 'sessionId 進度' } });
+assert.match(sessionIdRetry.content[0].text, /suppressed a recent duplicate/);
+assert.equal(sessionIdCalls, 1);
+
 // Identical text from another session is independent and must be delivered.
 let crossSessionCalls = 0;
 const crossSessionApi = makeApi({
@@ -161,12 +198,28 @@ const firstKey = buildAttemptKey({ route, sessionIdentity: 'session-1', message:
 assert.equal(guard.acquire(firstKey, { ...guardConfig, now: 0 }).suppressed, false);
 guard.mark(firstKey, 'confirmed');
 assert.equal(guard.acquire(firstKey, { ...guardConfig, now: 500 }).suppressed, true);
-assert.equal(guard.acquire(firstKey, { ...guardConfig, now: 1_001 }).suppressed, false);
+guard.mark(firstKey, 'confirmed', { now: 500, dedupeWindowMs: 1_000 });
+assert.equal(guard.acquire(firstKey, { ...guardConfig, now: 1_001 }).suppressed, true);
+assert.equal(guard.acquire(firstKey, { ...guardConfig, now: 1_501 }).suppressed, false);
 
+// Dispatching entries retain an active lease beyond the terminal dedupe TTL.
+const dispatchKey = buildAttemptKey({ route, sessionIdentity: 'dispatching', message: 'slow send' });
+assert.equal(guard.acquire(dispatchKey, { ...guardConfig, now: 2_000 }).suppressed, false);
+guard.mark(dispatchKey, 'dispatching', { now: 2_000, dedupeWindowMs: 1_000 });
+assert.equal(guard.acquire(dispatchKey, { ...guardConfig, now: 3_200 }).suppressed, true);
+
+guard.clear();
 for (let index = 0; index < 110; index += 1) {
   const key = buildAttemptKey({ route, sessionIdentity: `capacity-${index}`, message: 'bounded' });
-  guard.acquire(key, { dedupeWindowMs: 120_000, guardMaxEntries: 100, now: 2_000 + index });
+  const claim = guard.acquire(key, { dedupeWindowMs: 120_000, guardMaxEntries: 100, now: 4_000 + index });
+  if (index < 100) assert.equal(claim.saturated, undefined);
+  else assert.equal(claim.saturated, true);
 }
 assert.ok(guard.size() <= 100);
+const oldestActiveKey = buildAttemptKey({ route, sessionIdentity: 'capacity-0', message: 'bounded' });
+assert.equal(
+  guard.acquire(oldestActiveKey, { dedupeWindowMs: 120_000, guardMaxEntries: 100, now: 5_000 }).suppressed,
+  true,
+);
 
 console.log('delivery-dedup tests passed');

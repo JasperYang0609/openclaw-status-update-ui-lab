@@ -76,6 +76,12 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
     message: body,
   });
   const claim = deliveryGuard.acquire(attemptKey, guardConfig);
+  if (claim.saturated) {
+    return toolText(
+      `status_update_ui delivery guard is busy; no message was sent (attempt ${claim.attemptId}).`,
+      true,
+    );
+  }
   if (claim.suppressed) {
     return toolText(`status_update_ui suppressed a recent duplicate (${claim.state}, attempt ${claim.attemptId}).`);
   }
@@ -109,13 +115,20 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
     }
 
     if (rendered) {
-      deliveryGuard.mark(attemptKey, "dispatching");
+      deliveryGuard.mark(attemptKey, "dispatching", guardConfig);
       try {
         result = await dispatchPayload({ adapter, cfg, route, rendered, silent });
       } catch {
-        deliveryGuard.mark(attemptKey, "unknown");
+        deliveryGuard.mark(attemptKey, "unknown", guardConfig);
         return toolText(
           `status_update_ui delivery outcome is unknown; it may already be visible, so no fallback was sent (attempt ${claim.attemptId}).`,
+          true,
+        );
+      }
+      if (!result) {
+        deliveryGuard.mark(attemptKey, "unknown", guardConfig);
+        return toolText(
+          `status_update_ui delivery outcome is unknown because no delivery result was returned; no fallback was sent (attempt ${claim.attemptId}).`,
           true,
         );
       }
@@ -123,7 +136,7 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
   }
 
   if (!result) {
-    deliveryGuard.mark(attemptKey, "dispatching");
+    deliveryGuard.mark(attemptKey, "dispatching", guardConfig);
     try {
       result = await adapter.sendText({
         cfg,
@@ -134,7 +147,7 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
         silent,
       });
     } catch {
-      deliveryGuard.mark(attemptKey, "unknown");
+      deliveryGuard.mark(attemptKey, "unknown", guardConfig);
       return toolText(
         `status_update_ui delivery outcome is unknown; it may already be visible, so no retry was attempted (attempt ${claim.attemptId}).`,
         true,
@@ -144,13 +157,13 @@ export async function executeStatusUpdateUi({ api, ctx, params }) {
 
   const messageId = result?.messageId ?? result?.id;
   if (!messageId) {
-    deliveryGuard.mark(attemptKey, "unknown");
+    deliveryGuard.mark(attemptKey, "unknown", guardConfig);
     return toolText(
       `status_update_ui delivery outcome is unknown because no message identity was returned (attempt ${claim.attemptId}).`,
       true,
     );
   }
-  deliveryGuard.mark(attemptKey, "confirmed");
+  deliveryGuard.mark(attemptKey, "confirmed", guardConfig);
   return toolText(messageId
     ? `status_update_ui sent (${route.channel}, message ${messageId}).`
     : `status_update_ui sent (${route.channel}).`);

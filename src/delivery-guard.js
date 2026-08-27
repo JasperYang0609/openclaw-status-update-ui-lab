@@ -6,6 +6,8 @@ const MIN_DEDUPE_WINDOW_MS = 1_000;
 const MAX_DEDUPE_WINDOW_MS = 120_000;
 const MIN_GUARD_MAX_ENTRIES = 100;
 const MAX_GUARD_MAX_ENTRIES = 10_000;
+const ACTIVE_ATTEMPT_LEASE_MS = 5 * 60 * 1000;
+const ACTIVE_STATES = new Set(["prepared", "dispatching"]);
 
 function boundedInteger(value, fallback, min, max) {
   const parsed = Number(value);
@@ -34,6 +36,8 @@ export function resolveSessionIdentity(ctx) {
   const candidates = [
     ctx?.sessionKey,
     ctx?.deliveryContext?.sessionKey,
+    ctx?.sessionId,
+    ctx?.deliveryContext?.sessionId,
     ctx?.runId,
     ctx?.taskId,
   ];
@@ -67,10 +71,17 @@ export function createDeliveryGuard() {
 
   function enforceCapacity(maxEntries) {
     while (entries.size >= maxEntries) {
-      const oldest = entries.keys().next().value;
-      if (oldest === undefined) break;
-      entries.delete(oldest);
+      let removableKey;
+      for (const [key, entry] of entries) {
+        if (!ACTIVE_STATES.has(entry.state)) {
+          removableKey = key;
+          break;
+        }
+      }
+      if (removableKey === undefined) return false;
+      entries.delete(removableKey);
     }
+    return true;
   }
 
   return {
@@ -86,20 +97,27 @@ export function createDeliveryGuard() {
           state: existing.state,
         };
       }
-      enforceCapacity(guardMaxEntries);
+      if (!enforceCapacity(guardMaxEntries)) {
+        return { tracked: true, saturated: true, attemptId: randomUUID() };
+      }
       const entry = {
         attemptId: randomUUID(),
         state: "prepared",
-        expiresAt: now + dedupeWindowMs,
+        expiresAt: now + Math.max(dedupeWindowMs, ACTIVE_ATTEMPT_LEASE_MS),
       };
       entries.set(key, entry);
       return { tracked: true, suppressed: false, attemptId: entry.attemptId };
     },
 
-    mark(key, state) {
+    mark(key, state, { now = Date.now(), dedupeWindowMs = DEFAULT_DEDUPE_WINDOW_MS } = {}) {
       if (!key) return;
       const entry = entries.get(key);
-      if (entry) entry.state = state;
+      if (entry) {
+        entry.state = state;
+        entry.expiresAt = now + (ACTIVE_STATES.has(state)
+          ? Math.max(dedupeWindowMs, ACTIVE_ATTEMPT_LEASE_MS)
+          : dedupeWindowMs);
+      }
     },
 
     release(key) {
@@ -119,4 +137,5 @@ export function createDeliveryGuard() {
 export const deliveryGuardDefaults = {
   DEFAULT_DEDUPE_WINDOW_MS,
   DEFAULT_GUARD_MAX_ENTRIES,
+  ACTIVE_ATTEMPT_LEASE_MS,
 };
