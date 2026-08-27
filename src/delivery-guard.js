@@ -70,18 +70,7 @@ export function createDeliveryGuard() {
   }
 
   function enforceCapacity(maxEntries) {
-    while (entries.size >= maxEntries) {
-      let removableKey;
-      for (const [key, entry] of entries) {
-        if (!ACTIVE_STATES.has(entry.state)) {
-          removableKey = key;
-          break;
-        }
-      }
-      if (removableKey === undefined) return false;
-      entries.delete(removableKey);
-    }
-    return true;
+    return entries.size < maxEntries;
   }
 
   return {

@@ -222,4 +222,28 @@ assert.equal(
   true,
 );
 
+// Unexpired terminal outcomes are also retained; capacity saturation must fail closed.
+guard.clear();
+for (let index = 0; index < 100; index += 1) {
+  const key = buildAttemptKey({ route, sessionIdentity: `terminal-${index}`, message: 'terminal bounded' });
+  guard.acquire(key, { dedupeWindowMs: 120_000, guardMaxEntries: 100, now: 10_000 });
+  guard.mark(key, 'unknown', { now: 10_000, dedupeWindowMs: 120_000 });
+}
+const terminalOverflowKey = buildAttemptKey({ route, sessionIdentity: 'terminal-overflow', message: 'terminal bounded' });
+assert.equal(
+  guard.acquire(terminalOverflowKey, { dedupeWindowMs: 120_000, guardMaxEntries: 100, now: 10_001 }).saturated,
+  true,
+);
+const oldestTerminalKey = buildAttemptKey({ route, sessionIdentity: 'terminal-0', message: 'terminal bounded' });
+assert.equal(
+  guard.acquire(oldestTerminalKey, { dedupeWindowMs: 120_000, guardMaxEntries: 100, now: 10_002 }).suppressed,
+  true,
+);
+
+// Once entries expire, cleanup frees capacity normally.
+assert.equal(
+  guard.acquire(terminalOverflowKey, { dedupeWindowMs: 120_000, guardMaxEntries: 100, now: 130_001 }).saturated,
+  undefined,
+);
+
 console.log('delivery-dedup tests passed');

@@ -58,8 +58,8 @@ Discord 曾出現狀態卡已送達，但傳輸層未回傳成功確認的情況
 
 - 以 module-local Map 保存最近 attempt 摘要與狀態，TTL 預設 30 秒。
 - 同一摘要鍵在 TTL 內若為 `prepared`、`dispatching`、`confirmed` 或 `unknown`，後續呼叫回傳 suppressed／unknown，不再送出；這也涵蓋同時抵達的重複呼叫。
-- `prepared`／`dispatching` 使用有限 active lease，不可被一般 dedupe TTL 或容量清理提前淘汰；terminal state 才改用一般 TTL。
-- TTL 清理必須有最大筆數上限，避免記憶體無界增長；容量全被 active attempt 占用時，新 attempt 必須 fail closed，不可淘汰進行中的紀錄。
+- `prepared`／`dispatching` 使用有限 active lease，不可被一般 dedupe TTL 提前淘汰；terminal state 才改用一般 TTL。
+- TTL 清理必須有最大筆數上限，避免記憶體無界增長；所有尚未過期的 entry 都不可因容量提前淘汰，滿載時新 attempt 必須 fail closed。
 - 不同 Session、thread、target、account 或不同文字摘要必須互不影響。
 
 ### 4. Error contract
