@@ -1,6 +1,6 @@
 # OpenClaw Status Update UI Lab
 
-Experimental UI/UX research repo for OpenClaw task status display.
+Runtime-enforced UI/UX plugin for OpenClaw task status display.
 
 This repo is intentionally separate from `openclaw-status-update-plugin`.
 The original plugin should stay lightweight and broadly usable for customers who only need plain status updates.
@@ -34,9 +34,14 @@ Explore an optional UI/UX layer for prettier one-shot status messages first. Edi
 - Discord first, but keep a portable text fallback for every channel.
 
 
-## Reply policy
+## v0.3.0 behavior
 
-**Every assistant turn must send at least one `status_update_ui` card**, including short tasks and pure-text/conversational turns where no command is executed. Treat this as a required pre-send gate, not a courtesy. Keep the card short, specific, and safe.
+- Eligible user-triggered channel turns get one automatic start-card attempt before model inference.
+- A non-status tool that exceeds the configured threshold gets at most one automatic waiting card per run.
+- The model keeps `status_update_ui` for meaningful phase, blocker, strategy, verification, or recovery changes.
+- Automatic text is operator-controlled and never interpolates prompts, messages, tool parameters/results, paths, or errors.
+- Cron, heartbeat, background, route-less, conflicting-route, and missing-run contexts skip automatic delivery.
+- Status failures never block the normal final answer.
 
 Use UI cards only for in-progress status updates. Final assistant conclusions should remain normal text replies, not UI cards.
 
@@ -77,7 +82,11 @@ Then allow the tool for the active tool profile and restart Gateway:
     "allow": ["status-update-ui-lab"],
     "entries": {
       "status-update-ui-lab": {
-        "enabled": true
+        "enabled": true,
+        "hooks": {
+          "allowPromptInjection": true,
+          "allowConversationAccess": true
+        }
       }
     }
   },
@@ -86,6 +95,11 @@ Then allow the tool for the active tool profile and restart Gateway:
   }
 }
 ```
+
+Both hook permissions are required for v0.3.0:
+
+- `allowPromptInjection` permits the plugin to append one static system-guidance string.
+- `allowConversationAccess` permits registration of `before_agent_run`, which OpenClaw classifies as a conversation hook. The implementation reads only trusted account/route/run/Session metadata and never reads or retains `prompt`, `messages`, or `systemPrompt`. Tests use throwing proxies to enforce this boundary.
 
 ```bash
 openclaw gateway restart
@@ -108,7 +122,13 @@ openclaw plugins doctor
           "silent": true,
           "style": "presentation",
           "dedupeWindowMs": 30000,
-          "guardMaxEntries": 1000
+          "guardMaxEntries": 1000,
+          "enforcementMode": "hybrid",
+          "autoStartMessage": "狀態更新：已收到任務，正在確認範圍並開始處理。",
+          "autoWaitAfterMs": 15000,
+          "autoWaitMessage": "狀態更新：目前仍在等待這個步驟完成；完成後會立即驗證結果並繼續。",
+          "turnStateMaxEntries": 1000,
+          "turnStateTtlMs": 600000
         }
       }
     }
@@ -125,6 +145,9 @@ Notes:
 - On non-Discord channels, rich UI may degrade to a clean text card.
 - `dedupeWindowMs` suppresses identical attempts only within the same account, channel, target, thread, and Session. Values are bounded to 1–120 seconds.
 - `guardMaxEntries` bounds the in-memory attempt guard. Values are bounded to 100–10,000 entries.
+- `enforcementMode=hybrid` enables automatic start and one-shot waiting cards. `prompt` keeps only static model guidance; `off` returns to callable-tool-only behavior.
+- `autoWaitAfterMs=0` disables the automatic waiting card. Non-zero values are bounded to 5–60 seconds.
+- Turn state is memory-only, bounded, and discarded on Gateway restart.
 
 ## Unknown-delivery safety
 
@@ -136,11 +159,11 @@ The guard is intentionally not a durable ledger. Exact reconciliation across Gat
 
 Use `status_update_ui` only for in-progress status updates. Final assistant conclusions should remain normal text replies.
 
-Recommended unified prompt rule:
+Recommended defense-in-depth prompt rule:
 
 ```text
-每個 assistant turn 至少 1 張 `status_update_ui`，包含短任務/純文字回合；
-內容要短、具體、安全，用來說明當下立場、處理方向或下一步。
+Status Update UI Lab runtime 已處理每回合第一張進度卡；不要重複發送。
+只有在階段、卡點、策略、驗證或恢復狀態有明顯變更時，才使用 `status_update_ui`。
 過程狀態一律優先使用 `status_update_ui`。
 不要主動使用 `status_update`，除非 `status_update_ui` 不可用或失敗。
 最後正式結論必須用一般文字回覆，不要包成 UI 卡。
@@ -150,7 +173,7 @@ If the original `status_update` plugin is also installed, keep it as a fallback 
 
 ## Install-time agent hook
 
-A plugin alone is not a global middleware. To make the "every turn" rule reliable across model switches and session resets, installation should write a marker block into the target agent instructions (`AGENTS.md` or equivalent always-loaded instruction file).
+v0.3.0 provides runtime enforcement. The marker block remains defense in depth so model-authored updates stay event-based across model switches and Session resets.
 
 Use the bundled helper:
 
@@ -162,7 +185,8 @@ The helper is idempotent: re-running it replaces only the marker block above. Fo
 
 The installed marker block enforces:
 
-- Every assistant turn sends at least one `status_update_ui` card.
+- The model does not duplicate the runtime start card.
+- Later model-authored cards are event-based rather than fixed heartbeats.
 - UI cards are for in-progress status only; final conclusions stay plain text.
 - `status_update` is fallback only.
 - Cards must not expose chain-of-thought, raw commands, secrets, or sensitive paths.
@@ -175,6 +199,7 @@ API-assisted maintenance should focus on safe UI behavior, regression tests, acc
 
 ## Releases
 
+- `v0.3.0`: adds metadata-only runtime start enforcement, one-shot long-tool waiting cards, bounded per-run state, static prompt guidance, opt-out modes, and explicit hook-permission gates. This release requires OpenClaw `2026.7.1-2` or newer hook fields.
 - `v0.2.2`: prevents automatic fallback after ambiguous platform dispatch failures, adds bounded in-process duplicate suppression isolated by Session and route, and adds concurrency/TTL/capacity regression coverage.
 - `v0.2.1`: adds capability preflight and universal route/title fallback checks.
 
@@ -195,3 +220,17 @@ node scripts/status-ui-preflight.mjs \
 ```
 
 The preflight calls `tools.effective` only. It never invokes `status_update_ui` and never sends a message. It fails closed when the tool is missing, owned by another plugin, the session is unavailable, or the Gateway query fails. A static-only PASS is not proof that native subagent binding works; supply both parent and child session keys for deployment acceptance.
+
+## Upgrade acceptance and rollback
+
+After upgrade, do not declare a customer installation complete until all of these pass in a fresh Session:
+
+- `openclaw plugins inspect status-update-ui-lab --runtime --json` lists `before_agent_run`, `before_prompt_build`, `before_tool_call`, and `after_tool_call`.
+- Effective config grants both hook permissions above.
+- A short text turn shows one start card before the final answer.
+- A tool running beyond the threshold shows exactly one waiting card.
+- A tool error exposes no raw error/path in automatic cards and the final answer still arrives.
+- A Gateway restart and fresh `/new` retain enforcement.
+- Two-channel/thread smoke shows no cross-route delivery.
+
+Immediate behavior rollback: set `enforcementMode` to `prompt` or `off`, then restart Gateway. Full package rollback: reinstall the pinned `v0.2.2` artifact and restore its matching config. Do not delete Sessions or messages during rollback.

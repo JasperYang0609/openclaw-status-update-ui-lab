@@ -2,8 +2,8 @@
   "id": "status-update-ui-lab",
   "kind": "tools",
   "name": "Status Update UI Lab",
-  "description": "Standalone optional UI wrapper for status updates. Sends one-shot comfortable progress cards without requiring the original status-update plugin.",
-  "version": "0.2.2",
+  "description": "Runtime-enforced UI status cards for channel turns, with safe one-shot long-tool waiting updates.",
+  "version": "0.3.0",
   "contracts": {
     "tools": [
       "status_update_ui"
@@ -59,6 +59,45 @@
         "minimum": 100,
         "maximum": 10000,
         "description": "Maximum in-process delivery guard entries. Default: 1000"
+      },
+      "enforcementMode": {
+        "type": "string",
+        "enum": [
+          "off",
+          "prompt",
+          "hybrid"
+        ],
+        "description": "Runtime enforcement mode. Default: hybrid"
+      },
+      "autoStartMessage": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000,
+        "description": "Static operator-controlled automatic start message. User or tool content is never interpolated."
+      },
+      "autoWaitAfterMs": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 60000,
+        "description": "Delay before one automatic long-tool waiting card. Use 0 to disable; non-zero values are normalized to 5000–60000. Default: 15000"
+      },
+      "autoWaitMessage": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000,
+        "description": "Static operator-controlled automatic long-tool waiting message. User or tool content is never interpolated."
+      },
+      "turnStateMaxEntries": {
+        "type": "number",
+        "minimum": 100,
+        "maximum": 10000,
+        "description": "Maximum in-memory per-run enforcement entries. Default: 1000"
+      },
+      "turnStateTtlMs": {
+        "type": "number",
+        "minimum": 60000,
+        "maximum": 3600000,
+        "description": "In-memory per-run enforcement state lifetime. Default: 600000"
       }
     }
   },

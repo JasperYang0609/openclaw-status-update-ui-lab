@@ -1,7 +1,7 @@
 # Status Update UI Lab v0.3.0 Runtime Enforcement Design
 
 Date: 2026-09-01  
-Status: proposed for Jasper review  
+Status: approved by Jasper; conversation-hook permission amendment approved 2026-09-01
 Target release: `v0.3.0`
 
 ## 1. Decision
@@ -63,9 +63,11 @@ Trade-off: `v0.3.0` adds lifecycle behavior and therefore needs broader regressi
   - Owns turn/run state, bounded cleanup, wait timers, and safe automatic messages.
   - Stores only opaque run/session/route identifiers and timestamps in memory.
   - Never stores prompt text, conversation messages, tool parameters, tool results, secrets, or customer content.
-- `before_prompt_build` hook
+- `before_agent_run` conversation hook
+  - Uses only trusted account, route, run, and Session metadata; implementation must not read or retain prompt/messages/systemPrompt.
   - Confirms the turn is channel-originated and a current delivery route can be resolved.
-  - Sends the automatic start card once per run.
+  - Sends the automatic start card once per run, then always returns an explicit pass result so status failure cannot block the normal turn.
+- `before_prompt_build` hook
   - Adds static `appendSystemContext` guidance for meaningful later updates.
 - `before_tool_call` hook
   - Ignores `status_update_ui` itself.
@@ -82,10 +84,10 @@ Trade-off: `v0.3.0` adds lifecycle behavior and therefore needs broader regressi
 
 ### 4.2 Turn flow
 
-1. OpenClaw creates a run and calls `before_prompt_build`.
-2. The plugin resolves a safe current route from hook context.
-3. The plugin attempts the automatic start card using the existing delivery pipeline.
-4. The hook returns static prompt guidance stating that the initial card has already been attempted and immediate duplicate status is unnecessary.
+1. OpenClaw creates a run and calls `before_prompt_build`; the plugin returns only static guidance and does not inspect prompt/messages.
+2. Before model inference, OpenClaw calls `before_agent_run`; the plugin resolves a safe current route using only account/route/run/Session metadata.
+3. The plugin attempts the automatic start card using the existing delivery pipeline under a bounded internal wait.
+4. The conversation hook always returns an explicit pass result, including when status delivery fails or times out.
 5. The model may send additional status cards only when phase/evidence changes.
 6. Before a non-status tool starts, the plugin schedules a one-shot wait card.
 7. If the tool finishes first, the timer is cancelled. If the threshold is reached first, one waiting card is sent.
@@ -134,6 +136,7 @@ The plugin does not create new external destinations, discover recipients by dis
 The installation documentation and helper will become a complete deployment gate rather than a loose recommendation:
 
 - Install and enable the plugin.
+- Explicitly grant this plugin `hooks.allowPromptInjection=true` and `hooks.allowConversationAccess=true`; the latter is required by OpenClaw for `before_agent_run`, while implementation tests prove prompt/messages/systemPrompt are not accessed.
 - Allow callable tool `status_update_ui`.
 - Verify runtime hook registrations with `openclaw plugins inspect status-update-ui-lab --runtime --json`.
 - Verify effective tool ownership with the existing static/session preflight.
@@ -163,7 +166,7 @@ Per-guild manual system prompts are no longer required for baseline enforcement.
 
 - Existing title, identity, fallback, dedupe, and capability tests remain green.
 - Syntax check, package contents, secret scan, and dependency audit pass.
-- Runtime inspect shows `before_prompt_build`, `before_tool_call`, and `after_tool_call` registrations.
+- Runtime inspect shows `before_agent_run`, `before_prompt_build`, `before_tool_call`, and `after_tool_call`, with the two required hook permissions enabled in effective config.
 - Fresh `/new` short-text smoke: start card appears before the final answer.
 - Long-tool smoke: start card appears immediately and one wait card appears after threshold.
 - Tool-error smoke: automatic cards do not expose raw errors or paths; final answer still reports the safe result.

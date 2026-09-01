@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   checkEffectiveInventory,
+  checkRuntimeInspection,
   checkStaticContract,
   main,
   queryEffectiveInventory,
@@ -17,7 +18,9 @@ assert.deepEqual(checkStaticContract(repoRoot), {
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'status-ui-preflight-'));
 try {
-  for (const file of ['package.json', 'openclaw.plugin.json', 'index.js']) {
+  fs.mkdirSync(path.join(tempRoot, 'src'));
+  for (const file of ['package.json', 'openclaw.plugin.json', 'index.js', 'src/plugin.js']) {
+    fs.mkdirSync(path.dirname(path.join(tempRoot, file)), { recursive: true });
     fs.copyFileSync(path.join(repoRoot, file), path.join(tempRoot, file));
   }
   const manifestPath = path.join(tempRoot, 'openclaw.plugin.json');
@@ -51,17 +54,33 @@ assert.throws(
   () => checkEffectiveInventory({ groups: [{ tools: [{ id: 'status_update_ui', source: 'plugin', pluginId: 'wrong-owner' }] }] }, 'child'),
   /not owned by/,
 );
+
+const runtimeInspection = {
+  plugin: {
+    id: 'status-update-ui-lab',
+    hookNames: ['before_agent_run', 'before_prompt_build', 'before_tool_call', 'after_tool_call'],
+  },
+  typedHooks: [],
+};
+assert.equal(checkRuntimeInspection(runtimeInspection).hookNames.length, 4);
+assert.throws(
+  () => checkRuntimeInspection({ plugin: { id: 'status-update-ui-lab', hookNames: ['before_prompt_build'] } }),
+  /missing runtime hook/,
+);
 assert.throws(
   () => queryEffectiveInventory('agent:test:discord:channel:fixture', 'definitely-not-a-real-openclaw-command'),
   /gateway query failed/,
 );
 
 const effectiveFile = path.join(os.tmpdir(), `status-ui-effective-${process.pid}.json`);
+const runtimeFile = path.join(os.tmpdir(), `status-ui-runtime-${process.pid}.json`);
 fs.writeFileSync(effectiveFile, JSON.stringify(effective));
+fs.writeFileSync(runtimeFile, JSON.stringify(runtimeInspection));
 try {
-  main(['--effective-json', effectiveFile]);
+  main(['--effective-json', effectiveFile, '--runtime-inspect-json', runtimeFile]);
 } finally {
   fs.rmSync(effectiveFile, { force: true });
+  fs.rmSync(runtimeFile, { force: true });
 }
 
 console.log('capability-preflight tests passed');

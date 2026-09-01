@@ -5,6 +5,8 @@ Approved design: `docs/superpowers/specs/2026-09-01-runtime-status-enforcement-d
 Design commit: `e4ad1e262d73b63e62bfb825fa972d072af7dd19`  
 Execution scope: local implementation, tests, security evidence, independent review, and commits only
 
+Permission amendment: Jasper approved `hooks.allowConversationAccess=true` on 2026-09-01. The implementation may register `before_agent_run` solely to obtain trusted account/route/run metadata. It must not read or retain prompt, messages, or systemPrompt, and must always return an explicit pass result.
+
 ## Task spec / dispatch
 
 ### Background
@@ -25,7 +27,7 @@ Implement the approved hybrid runtime enforcement for `v0.3.0`:
 ### In scope
 
 - Add bounded turn/run enforcement state and hook handlers.
-- Register `before_prompt_build`, `before_tool_call`, and `after_tool_call`.
+- Register `before_agent_run`, `before_prompt_build`, `before_tool_call`, and `after_tool_call`.
 - Extend route resolution for documented hook context fields without weakening existing route checks.
 - Prefer `runId` for dedupe identity when available.
 - Add and validate the approved config fields.
@@ -92,7 +94,7 @@ dirty_status:
 ### Stop and ask PM if
 
 - OpenClaw hook context cannot provide an exact current route without reading or persisting conversation content.
-- Implementation requires `allowConversationAccess=true`.
+- Implementation requires any conversation content access beyond the approved metadata-only `before_agent_run` use.
 - The only viable design needs repeated timers, destination fallback, final-answer blocking, or prompt/tool content interpolation.
 - Existing v0.2.2 unknown-delivery protection would be weakened.
 - A P0/P1 security finding appears.

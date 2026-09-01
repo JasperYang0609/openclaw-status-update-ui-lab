@@ -34,11 +34,12 @@ export function resolveGuardConfig(pluginConfig = {}) {
 
 export function resolveSessionIdentity(ctx) {
   const candidates = [
+    ctx?.runId,
+    ctx?.deliveryContext?.runId,
     ctx?.sessionKey,
     ctx?.deliveryContext?.sessionKey,
     ctx?.sessionId,
     ctx?.deliveryContext?.sessionId,
-    ctx?.runId,
     ctx?.taskId,
   ];
   for (const candidate of candidates) {

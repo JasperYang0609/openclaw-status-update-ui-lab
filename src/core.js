@@ -35,8 +35,18 @@ export function resolveRoute(ctx) {
     ? dc.channel.trim()
     : typeof ctx?.messageChannel === "string" && ctx.messageChannel.trim()
       ? ctx.messageChannel.trim()
+      : typeof ctx?.channel === "string" && ctx.channel.trim()
+        ? ctx.channel.trim()
+        : typeof ctx?.messageProvider === "string" && ctx.messageProvider.trim()
+          ? ctx.messageProvider.trim()
       : undefined;
-  let to = typeof dc.to === "string" && dc.to.trim() ? dc.to.trim() : undefined;
+  let to = typeof dc.to === "string" && dc.to.trim()
+    ? dc.to.trim()
+    : typeof ctx?.chatId === "string" && ctx.chatId.trim()
+      ? ctx.chatId.trim()
+      : typeof ctx?.channelId === "string" && ctx.channelId.trim()
+        ? ctx.channelId.trim()
+        : undefined;
 
   if (!channel || !to) {
     const parsed = parseSessionKeyRoute(ctx?.sessionKey);
@@ -50,8 +60,12 @@ export function resolveRoute(ctx) {
   return {
     channel,
     to,
-    accountId: typeof dc.accountId === "string" && dc.accountId.trim() ? dc.accountId.trim() : null,
-    threadId: dc.threadId ?? null,
+    accountId: typeof dc.accountId === "string" && dc.accountId.trim()
+      ? dc.accountId.trim()
+      : typeof ctx?.accountId === "string" && ctx.accountId.trim()
+        ? ctx.accountId.trim()
+        : null,
+    threadId: dc.threadId ?? ctx?.threadId ?? null,
   };
 }
 

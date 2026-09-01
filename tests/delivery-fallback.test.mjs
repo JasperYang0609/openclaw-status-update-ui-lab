@@ -69,6 +69,14 @@ const overrideRoute = resolveRoute({
 });
 assert.deepEqual(overrideRoute, { channel: 'telegram', to: 'chat:42', accountId: 'acc-1', threadId: null });
 
+// Typed agent-hook context can resolve the current channel route without
+// reading prompt or message fields.
+assert.deepEqual(resolveRoute({
+  channel: 'discord',
+  chatId: 'typed-target',
+  accountId: 'secondary',
+}), { channel: 'discord', to: 'typed-target', accountId: 'secondary', threadId: null });
+
 const adapterLoadFailureApi = {
   pluginConfig: {},
   config: {},
