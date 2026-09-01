@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { clearDeliveryGuardForTest, executeStatusUpdateUi } from '../src/delivery.js';
-import { buildAttemptKey, createDeliveryGuard, resolveGuardConfig } from '../src/delivery-guard.js';
+import { buildAttemptKey, createDeliveryGuard, resolveGuardConfig, resolveSessionIdentity } from '../src/delivery-guard.js';
 
 function makeCtx({
   sessionKey = 'agent:main:discord:channel:123',
@@ -28,6 +28,8 @@ function makeApi({ sendPayload, sendText, renderPresentation, pluginConfig = {} 
 }
 
 clearDeliveryGuardForTest();
+
+assert.equal(resolveSessionIdentity({ runId: 'run-wins', sessionKey: 'session-loses' }), 'run-wins');
 
 // A rejected platform send is ambiguous: never send a fallback that could duplicate it.
 let unknownPayloadCalls = 0;

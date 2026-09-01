@@ -4,6 +4,13 @@ const DEFAULT_PREFIX = "狀態更新：";
 const DEFAULT_MAX_LENGTH = 240;
 const BOT_NAME_CACHE_TTL_MS = 10 * 60 * 1000;
 const botNameCache = new Map();
+const SESSION_DELIVERY_PEER_KINDS = new Set(["channel", "group", "direct", "dm"]);
+const USER_PREFIXED_DIRECT_TARGET_CHANNELS = new Set([
+  "discord",
+  "mattermost",
+  "msteams",
+  "slack",
+]);
 
 export function normalizeText(value) {
   return String(value ?? "")
@@ -21,25 +28,71 @@ export function parseSessionKeyRoute(sessionKey) {
   if (typeof sessionKey !== "string") return null;
   const trimmed = sessionKey.trim();
   if (!trimmed) return null;
-  const match = trimmed.match(/^agent:[^:]+:([^:]+):(.+)$/);
-  if (!match) return null;
-  const channel = match[1].trim();
-  const to = match[2].trim();
-  if (!channel || !to) return null;
-  return { channel, to };
+  const threadMarker = ":thread:";
+  const threadMarkerIndex = trimmed.toLowerCase().lastIndexOf(threadMarker);
+  let baseSessionKey = trimmed;
+  let threadId = null;
+  if (threadMarkerIndex !== -1) {
+    threadId = trimmed.slice(threadMarkerIndex + threadMarker.length).trim();
+    if (!threadId) return null;
+    baseSessionKey = trimmed.slice(0, threadMarkerIndex);
+  }
+
+  const parts = baseSessionKey.split(":");
+  if (parts[0] !== "agent" || !parts[1] || parts.length < 5) return null;
+
+  const channel = parts[2]?.trim().toLowerCase();
+  const routeParts = parts.slice(3);
+
+  let accountId = null;
+  let peerKind;
+  let peerParts;
+  if (routeParts.length >= 3 && ["direct", "dm"].includes(routeParts[1]?.toLowerCase())) {
+    accountId = routeParts[0]?.trim() || null;
+    peerKind = routeParts[1].toLowerCase();
+    peerParts = routeParts.slice(2);
+  } else {
+    peerKind = routeParts[0]?.toLowerCase();
+    peerParts = routeParts.slice(1);
+  }
+
+  if (!channel || !SESSION_DELIVERY_PEER_KINDS.has(peerKind)) return null;
+  const peerId = peerParts.join(":").trim();
+  if (!peerId) return null;
+  const to = channel === "discord" && ["channel", "group"].includes(peerKind)
+    ? `channel:${peerId}`
+    : ["direct", "dm"].includes(peerKind) && USER_PREFIXED_DIRECT_TARGET_CHANNELS.has(channel)
+      ? `user:${peerId}`
+      : peerId;
+  return {
+    channel,
+    to,
+    accountId,
+    threadId,
+  };
 }
 
 export function resolveRoute(ctx) {
   const dc = ctx?.deliveryContext ?? {};
+  const parsed = parseSessionKeyRoute(ctx?.sessionKey);
   let channel = typeof dc.channel === "string" && dc.channel.trim()
     ? dc.channel.trim()
     : typeof ctx?.messageChannel === "string" && ctx.messageChannel.trim()
       ? ctx.messageChannel.trim()
+      : typeof ctx?.channel === "string" && ctx.channel.trim()
+        ? ctx.channel.trim()
+        : typeof ctx?.messageProvider === "string" && ctx.messageProvider.trim()
+          ? ctx.messageProvider.trim()
       : undefined;
-  let to = typeof dc.to === "string" && dc.to.trim() ? dc.to.trim() : undefined;
+  let to = typeof dc.to === "string" && dc.to.trim()
+    ? dc.to.trim()
+    : typeof ctx?.chatId === "string" && ctx.chatId.trim()
+      ? ctx.chatId.trim()
+      : typeof ctx?.channelId === "string" && ctx.channelId.trim()
+        ? ctx.channelId.trim()
+        : undefined;
 
   if (!channel || !to) {
-    const parsed = parseSessionKeyRoute(ctx?.sessionKey);
     if (parsed) {
       if (!channel) channel = parsed.channel;
       if (!to) to = parsed.to;
@@ -50,8 +103,12 @@ export function resolveRoute(ctx) {
   return {
     channel,
     to,
-    accountId: typeof dc.accountId === "string" && dc.accountId.trim() ? dc.accountId.trim() : null,
-    threadId: dc.threadId ?? null,
+    accountId: typeof dc.accountId === "string" && dc.accountId.trim()
+      ? dc.accountId.trim()
+      : typeof ctx?.accountId === "string" && ctx.accountId.trim()
+        ? ctx.accountId.trim()
+        : parsed?.accountId ?? null,
+    threadId: dc.threadId ?? ctx?.threadId ?? parsed?.threadId ?? null,
   };
 }
 

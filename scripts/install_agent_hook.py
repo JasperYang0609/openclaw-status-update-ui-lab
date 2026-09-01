@@ -9,11 +9,13 @@ from pathlib import Path
 START = "<!-- status-update-ui-lab:start -->"
 END = "<!-- status-update-ui-lab:end -->"
 BLOCK = f"""{START}
-For every assistant turn, send at least one `status_update_ui` card, including short tasks and pure-text/conversational turns where no command is executed. Treat this as a required pre-send gate, not a courtesy. Keep the card short, specific, and safe.
+Status Update UI Lab runtime attempts the initial progress card automatically for eligible channel turns. Do not duplicate that initial card.
 
-Use `status_update_ui` only for in-progress status. Final conclusions remain plain text replies, not UI cards. Do not use `status_update` unless `status_update_ui` is unavailable or fails.
+Use `status_update_ui` only when there is a meaningful phase change, blocker, strategy change, verification step, recovery, or new evidence. Keep updates event-based, short, specific, and safe. For a long-running step, the runtime may send one automatic waiting card; do not add fixed heartbeat spam.
 
-Status cards must not expose hidden chain-of-thought, raw commands, secrets, or sensitive local paths.
+Final conclusions remain plain text replies, not UI cards. Do not use `status_update` unless `status_update_ui` is unavailable or fails.
+
+Status cards must not expose hidden chain-of-thought, message bodies, raw commands, tool parameters/results, secrets, or sensitive local paths.
 {END}
 """
 
