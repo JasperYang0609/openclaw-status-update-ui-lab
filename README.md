@@ -202,6 +202,7 @@ API-assisted maintenance should focus on safe UI behavior, regression tests, acc
 
 ## Releases
 
+- `v0.3.1`: packaging-only patch; the published `.tgz` now includes the test suite so the exact downloadable artifact can rerun `npm test`. Runtime behavior is unchanged from `v0.3.0`.
 - `v0.3.0`: adds metadata-only runtime start enforcement, one-shot long-tool waiting cards, bounded per-run state, static prompt guidance, opt-out modes, and explicit hook-permission gates. This release requires OpenClaw `2026.7.1-2` or newer hook fields.
 - `v0.2.2`: prevents automatic fallback after ambiguous platform dispatch failures, adds bounded in-process duplicate suppression isolated by Session and route, and adds concurrency/TTL/capacity regression coverage.
 - `v0.2.1`: adds capability preflight and universal route/title fallback checks.
