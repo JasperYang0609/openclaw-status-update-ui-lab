@@ -45,14 +45,38 @@ assert.match(noRouteResult.content[0].text, /no current delivery route/);
 // can still deliver in-progress status cards.
 assert.deepEqual(
   parseSessionKeyRoute('agent:main:discord:channel:1512756985181900820'),
-  { channel: 'discord', to: 'channel:1512756985181900820' },
+  { channel: 'discord', to: 'channel:1512756985181900820', accountId: null, threadId: null },
+);
+assert.deepEqual(
+  parseSessionKeyRoute('agent:main:discord:secondary:direct:42'),
+  { channel: 'discord', to: 'user:42', accountId: 'secondary', threadId: null },
+);
+assert.deepEqual(
+  parseSessionKeyRoute('agent:main:discord:channel:123:thread:456'),
+  { channel: 'discord', to: 'channel:123', accountId: null, threadId: '456' },
+);
+assert.deepEqual(
+  parseSessionKeyRoute('agent:main:telegram:group:-100:thread:333'),
+  { channel: 'telegram', to: '-100', accountId: null, threadId: '333' },
 );
 assert.equal(parseSessionKeyRoute(''), null);
 assert.equal(parseSessionKeyRoute('not-an-agent-key'), null);
+assert.equal(parseSessionKeyRoute('agent:main:discord:unknown:123'), null);
+assert.equal(parseSessionKeyRoute('agent:main:telegram:group:-100:thread:'), null);
 assert.equal(parseSessionKeyRoute(null), null);
 
 const sessionKeyRoute = resolveRoute({ sessionKey: 'agent:main:discord:channel:abc' });
 assert.deepEqual(sessionKeyRoute, { channel: 'discord', to: 'channel:abc', accountId: null, threadId: null });
+
+assert.deepEqual(resolveRoute({ sessionKey: 'agent:main:discord:secondary:direct:42' }), {
+  channel: 'discord', to: 'user:42', accountId: 'secondary', threadId: null,
+});
+assert.deepEqual(resolveRoute({ sessionKey: 'agent:main:discord:channel:123:thread:456' }), {
+  channel: 'discord', to: 'channel:123', accountId: null, threadId: '456',
+});
+assert.deepEqual(resolveRoute({ sessionKey: 'agent:main:telegram:group:-100:thread:333' }), {
+  channel: 'telegram', to: '-100', accountId: null, threadId: '333',
+});
 
 const sessionKeyFallbackResult = await executeStatusUpdateUi({
   api: richFailureApi,

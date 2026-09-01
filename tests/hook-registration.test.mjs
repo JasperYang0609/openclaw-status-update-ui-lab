@@ -63,10 +63,29 @@ assert.deepEqual(await hybridHooks.get('before_agent_run')({ accountId: 'default
   trigger: 'user',
 }), { outcome: 'pass' });
 
+const enforcementCalls = [];
+const injectedHooks = new Map();
+registerStatusUpdateUiPlugin({
+  pluginConfig: {},
+  registerTool() {},
+  on(name, handler) { injectedHooks.set(name, handler); },
+}, { enforcement: {
+  async start() { enforcementCalls.push('start'); },
+  beforeTool() { enforcementCalls.push('beforeTool'); },
+  afterTool() { enforcementCalls.push('afterTool'); },
+  noteProgress() { enforcementCalls.push('noteProgress'); },
+} });
+injectedHooks.get('before_tool_call')({ toolName: 'status_update_ui', runId: 'run-status' }, { runId: 'run-status' });
+injectedHooks.get('after_tool_call')({ toolName: 'status_update_ui', runId: 'run-status' }, { runId: 'run-status' });
+injectedHooks.get('before_tool_call')({ toolName: 'exec', runId: 'run-exec' }, { runId: 'run-exec' });
+injectedHooks.get('after_tool_call')({ toolName: 'exec', runId: 'run-exec' }, { runId: 'run-exec' });
+assert.deepEqual(enforcementCalls, ['noteProgress', 'beforeTool', 'afterTool']);
+
 const manifest = JSON.parse(fs.readFileSync(new URL('../openclaw.plugin.json', import.meta.url), 'utf8'));
 assert.equal(manifest.version, '0.3.0');
 assert.deepEqual(manifest.configSchema.properties.enforcementMode.enum, ['off', 'prompt', 'hybrid']);
 assert.equal(manifest.configSchema.properties.autoWaitAfterMs.minimum, 0);
 assert.equal(manifest.configSchema.properties.turnStateTtlMs.maximum, 3_600_000);
+assert.equal(manifest.configSchema.properties.turnToolTimerMaxEntries.maximum, 1_000);
 
 console.log('hook-registration tests passed');

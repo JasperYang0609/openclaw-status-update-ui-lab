@@ -6,6 +6,7 @@ const DEFAULT_AUTO_WAIT_AFTER_MS = 15_000;
 const DEFAULT_AUTO_WAIT_MESSAGE = "狀態更新：目前仍在等待這個步驟完成；完成後會立即驗證結果並繼續。";
 const DEFAULT_TURN_STATE_MAX_ENTRIES = 1_000;
 const DEFAULT_TURN_STATE_TTL_MS = 10 * 60 * 1_000;
+const DEFAULT_TURN_TOOL_TIMER_MAX_ENTRIES = 64;
 const DEFAULT_START_DELIVERY_TIMEOUT_MS = 4_000;
 const STATIC_SYSTEM_GUIDANCE = [
   "Status Update UI Lab runtime handles the initial progress-card attempt for eligible channel turns.",
@@ -38,14 +39,26 @@ function normalizeTargetForComparison(value) {
   return text;
 }
 
+function splitTarget(value) {
+  const normalized = normalizeTargetForComparison(value);
+  const markerIndex = normalized.lastIndexOf(":thread:");
+  if (markerIndex === -1) return { base: normalized, threadId: null };
+  return {
+    base: normalized.slice(0, markerIndex),
+    threadId: normalized.slice(markerIndex + 8) || null,
+  };
+}
+
 function sameRoute(left, right) {
+  const leftTarget = splitTarget(left?.to);
+  const rightTarget = splitTarget(right?.to);
   return Boolean(
     left
     && right
     && left.channel === right.channel
-    && normalizeTargetForComparison(left.to) === normalizeTargetForComparison(right.to)
+    && leftTarget.base === rightTarget.base
     && (left.accountId ?? null) === (right.accountId ?? null)
-    && (left.threadId ?? null) === (right.threadId ?? null),
+    && (left.threadId ?? leftTarget.threadId ?? null) === (right.threadId ?? rightTarget.threadId ?? null),
   );
 }
 
@@ -80,6 +93,12 @@ export function resolveEnforcementConfig(pluginConfig = {}) {
       60_000,
       3_600_000,
     ),
+    turnToolTimerMaxEntries: boundedInteger(
+      pluginConfig.turnToolTimerMaxEntries,
+      DEFAULT_TURN_TOOL_TIMER_MAX_ENTRIES,
+      1,
+      1_000,
+    ),
   };
 }
 
@@ -107,11 +126,18 @@ export function resolveAutomaticRoute(event = {}, ctx = {}) {
   const parsed = parseSessionKeyRoute(ctx?.sessionKey);
 
   if (parsed && explicitChannel && parsed.channel !== explicitChannel) return null;
-  if (parsed && explicitTarget
-    && normalizeTargetForComparison(parsed.to) !== normalizeTargetForComparison(explicitTarget)) return null;
+  if (parsed && parsed.accountId && parsed.accountId !== accountId) return null;
+  if (parsed && explicitTarget) {
+    const parsedTarget = splitTarget(parsed.to);
+    const explicitTargetParts = splitTarget(explicitTarget);
+    if (parsedTarget.base !== explicitTargetParts.base) return null;
+    if (explicitTargetParts.threadId && explicitTargetParts.threadId !== parsed.threadId) return null;
+  }
   if (parsed && explicit) {
     if (parsed.channel !== explicit.channel) return null;
-    if (normalizeTargetForComparison(parsed.to) !== normalizeTargetForComparison(explicit.to)) return null;
+    if (splitTarget(parsed.to).base !== splitTarget(explicit.to).base) return null;
+    const explicitThreadId = explicit.threadId ?? splitTarget(explicit.to).threadId;
+    if (explicitThreadId && explicitThreadId !== parsed.threadId) return null;
   }
 
   const base = parsed ?? explicit;
@@ -120,7 +146,7 @@ export function resolveAutomaticRoute(event = {}, ctx = {}) {
     channel: base.channel,
     to: base.to,
     accountId,
-    threadId: null,
+    threadId: parsed?.threadId ?? base.threadId ?? splitTarget(base.to).threadId,
   };
 }
 
@@ -257,8 +283,11 @@ export function createTurnEnforcement({
     if (!runId || !toolCallId) return false;
     const entry = getEntry(runId, config);
     if (!entry || entry.waitSent || entry.toolTimers.has(toolCallId)) return false;
+    if (entry.toolTimers.size >= config.turnToolTimerMaxEntries) return false;
 
-    const delay = Math.max(0, config.autoWaitAfterMs - Math.max(0, now() - entry.lastProgressAt));
+    // A tool always receives the full threshold from its own start. Prior turn
+    // age must never make a newly started tool emit an immediate wait card.
+    const delay = config.autoWaitAfterMs;
     const ownedRoute = entry.route;
     const handle = setTimeoutFn(() => {
       const latest = entries.get(runId);
@@ -315,6 +344,7 @@ export const enforcementDefaults = {
   DEFAULT_AUTO_WAIT_MESSAGE,
   DEFAULT_TURN_STATE_MAX_ENTRIES,
   DEFAULT_TURN_STATE_TTL_MS,
+  DEFAULT_TURN_TOOL_TIMER_MAX_ENTRIES,
   DEFAULT_START_DELIVERY_TIMEOUT_MS,
   STATIC_SYSTEM_GUIDANCE,
 };

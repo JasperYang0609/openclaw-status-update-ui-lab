@@ -128,7 +128,8 @@ openclaw plugins doctor
           "autoWaitAfterMs": 15000,
           "autoWaitMessage": "狀態更新：目前仍在等待這個步驟完成；完成後會立即驗證結果並繼續。",
           "turnStateMaxEntries": 1000,
-          "turnStateTtlMs": 600000
+          "turnStateTtlMs": 600000,
+          "turnToolTimerMaxEntries": 64
         }
       }
     }
@@ -148,6 +149,7 @@ Notes:
 - `enforcementMode=hybrid` enables automatic start and one-shot waiting cards. `prompt` keeps only static model guidance; `off` returns to callable-tool-only behavior.
 - `autoWaitAfterMs=0` disables the automatic waiting card. Non-zero values are bounded to 5–60 seconds.
 - Turn state is memory-only, bounded, and discarded on Gateway restart.
+- Per-run simultaneous waiting timers are separately bounded to 1–1,000 (default 64); overflow skips extra automatic wait cards without blocking tools.
 
 ## Unknown-delivery safety
 

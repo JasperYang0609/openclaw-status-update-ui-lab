@@ -1,8 +1,8 @@
 # Status Update UI Lab v0.3.0 Implementation Plan
 
-Date: 2026-09-01  
-Approved design: `docs/superpowers/specs/2026-09-01-runtime-status-enforcement-design.md`  
-Design commit: `e4ad1e262d73b63e62bfb825fa972d072af7dd19`  
+Date: 2026-09-01
+Approved design: `docs/superpowers/specs/2026-09-01-runtime-status-enforcement-design.md`
+Design commit: `e4ad1e262d73b63e62bfb825fa972d072af7dd19`
 Execution scope: local implementation, tests, security evidence, independent review, and commits only
 
 Permission amendment: Jasper approved `hooks.allowConversationAccess=true` on 2026-09-01. The implementation may register `before_agent_run` solely to obtain trusted account/route/run metadata. It must not read or retain prompt, messages, or systemPrompt, and must always return an explicit pass result.

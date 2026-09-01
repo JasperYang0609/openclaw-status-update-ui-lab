@@ -58,12 +58,14 @@ assert.deepEqual(resolveEnforcementConfig({}), {
   autoWaitMessage: enforcementDefaults.DEFAULT_AUTO_WAIT_MESSAGE,
   turnStateMaxEntries: 1_000,
   turnStateTtlMs: 600_000,
+  turnToolTimerMaxEntries: 64,
 });
 assert.equal(resolveEnforcementConfig({ autoWaitAfterMs: 0 }).autoWaitAfterMs, 0);
 assert.equal(resolveEnforcementConfig({ autoWaitAfterMs: 1 }).autoWaitAfterMs, 5_000);
 assert.equal(resolveEnforcementConfig({ autoWaitAfterMs: 999_999 }).autoWaitAfterMs, 60_000);
 assert.equal(resolveEnforcementConfig({ turnStateMaxEntries: 1 }).turnStateMaxEntries, 100);
 assert.equal(resolveEnforcementConfig({ turnStateTtlMs: 1 }).turnStateTtlMs, 60_000);
+assert.equal(resolveEnforcementConfig({ turnToolTimerMaxEntries: 0 }).turnToolTimerMaxEntries, 1);
 assert.match(buildPromptGuidance({ enforcementMode: 'hybrid' }), /initial progress-card attempt/);
 assert.equal(buildPromptGuidance({ enforcementMode: 'off' }), '');
 
@@ -73,6 +75,43 @@ assert.deepEqual(resolveAutomaticRoute(beforeEvent(), hookCtx()), {
   accountId: 'default',
   threadId: null,
 });
+assert.deepEqual(resolveAutomaticRoute(beforeEvent('secondary'), hookCtx({
+  sessionKey: 'agent:main:discord:secondary:direct:42',
+  chatId: '42',
+})), {
+  channel: 'discord',
+  to: 'user:42',
+  accountId: 'secondary',
+  threadId: null,
+});
+assert.deepEqual(resolveAutomaticRoute(beforeEvent(), hookCtx({
+  sessionKey: 'agent:main:discord:channel:123:thread:456',
+  chatId: '123:thread:456',
+})), {
+  channel: 'discord',
+  to: 'channel:123',
+  accountId: 'default',
+  threadId: '456',
+});
+assert.deepEqual(resolveAutomaticRoute(beforeEvent(), hookCtx({
+  sessionKey: 'agent:main:telegram:group:-100:thread:333',
+  channel: 'telegram',
+  chatId: '-100:thread:333',
+})), {
+  channel: 'telegram',
+  to: '-100',
+  accountId: 'default',
+  threadId: '333',
+});
+assert.equal(resolveAutomaticRoute(beforeEvent(), hookCtx({
+  sessionKey: 'agent:main:telegram:group:-100:thread:333',
+  channel: 'telegram',
+  chatId: '-100:thread:444',
+})), null);
+assert.equal(resolveAutomaticRoute(beforeEvent('default'), hookCtx({
+  sessionKey: 'agent:main:discord:secondary:direct:42',
+  chatId: '42',
+})), null);
 assert.equal(resolveAutomaticRoute(beforeEvent(), hookCtx({ trigger: 'cron' })), null);
 assert.equal(resolveAutomaticRoute(beforeEvent(), hookCtx({ trigger: 'heartbeat' })), null);
 assert.equal(resolveAutomaticRoute({}, hookCtx()), null);
@@ -123,6 +162,29 @@ const routeConflict = await enforcement.start({
   pluginConfig: {},
 });
 assert.equal(routeConflict.reason, 'route-conflict');
+
+const topicRouteOwner = createTurnEnforcement({ deliver: async () => {} });
+const topicFirst = await topicRouteOwner.start({
+  event: beforeEvent(),
+  ctx: hookCtx({
+    runId: 'topic-run',
+    sessionKey: 'agent:main:telegram:group:-100:thread:333',
+    channel: 'telegram',
+    chatId: '-100:thread:333',
+  }),
+});
+const topicConflict = await topicRouteOwner.start({
+  event: beforeEvent(),
+  ctx: hookCtx({
+    runId: 'topic-run',
+    sessionKey: 'agent:main:telegram:group:-100:thread:444',
+    channel: 'telegram',
+    chatId: '-100:thread:444',
+  }),
+});
+assert.equal(topicFirst.attempted, true);
+assert.equal(topicConflict.reason, 'route-conflict', 'one run cannot change Telegram topics');
+topicRouteOwner.clear();
 
 await enforcement.start({ event: beforeEvent(), ctx: hookCtx({ runId: 'run-2' }), pluginConfig: {} });
 assert.equal(deliveries.length, 2, 'consecutive runs in one session must both send');
@@ -190,6 +252,52 @@ multi.beforeTool({ event: { toolName: 'b', toolCallId: 'b', runId: 'multi' }, ct
 await multiClock.advance(5_000);
 assert.equal(multiDeliveries.filter((item) => item.kind === 'wait').length, 1);
 
+const timerCapClock = createFakeClock();
+const timerCap = createTurnEnforcement({
+  deliver: async () => {},
+  now: timerCapClock.now,
+  setTimeoutFn: timerCapClock.setTimeoutFn,
+  clearTimeoutFn: timerCapClock.clearTimeoutFn,
+});
+await timerCap.start({ event: beforeEvent(), ctx: hookCtx({ runId: 'timer-cap' }) });
+const timerCapConfig = { autoWaitAfterMs: 5_000, turnToolTimerMaxEntries: 2 };
+assert.equal(timerCap.beforeTool({ event: { toolName: 'a', toolCallId: 'a', runId: 'timer-cap' }, ctx: { runId: 'timer-cap' }, pluginConfig: timerCapConfig }), true);
+assert.equal(timerCap.beforeTool({ event: { toolName: 'b', toolCallId: 'b', runId: 'timer-cap' }, ctx: { runId: 'timer-cap' }, pluginConfig: timerCapConfig }), true);
+assert.equal(timerCap.beforeTool({ event: { toolName: 'c', toolCallId: 'c', runId: 'timer-cap' }, ctx: { runId: 'timer-cap' }, pluginConfig: timerCapConfig }), false);
+
+const progressClock = createFakeClock();
+const progressDeliveries = [];
+const progress = createTurnEnforcement({
+  deliver: async (request) => { progressDeliveries.push(request); },
+  now: progressClock.now,
+  setTimeoutFn: progressClock.setTimeoutFn,
+  clearTimeoutFn: progressClock.clearTimeoutFn,
+});
+await progress.start({ event: beforeEvent(), ctx: hookCtx({ runId: 'progress-run' }) });
+await progressClock.advance(4_000);
+assert.equal(progress.noteProgress({ event: { runId: 'progress-run' }, pluginConfig: toolConfig }), true);
+progress.beforeTool({ event: { toolName: 'exec', toolCallId: 'after-progress', runId: 'progress-run' }, ctx: { runId: 'progress-run' }, pluginConfig: toolConfig });
+await progressClock.advance(4_999);
+assert.equal(progressDeliveries.length, 1, 'every new tool must receive the full long-tool threshold');
+await progressClock.advance(1);
+assert.equal(progressDeliveries.filter((item) => item.kind === 'wait').length, 1);
+
+const agedClock = createFakeClock();
+const agedDeliveries = [];
+const aged = createTurnEnforcement({
+  deliver: async (request) => { agedDeliveries.push(request); },
+  now: agedClock.now,
+  setTimeoutFn: agedClock.setTimeoutFn,
+  clearTimeoutFn: agedClock.clearTimeoutFn,
+});
+await aged.start({ event: beforeEvent(), ctx: hookCtx({ runId: 'aged-run' }) });
+await agedClock.advance(30_000);
+aged.beforeTool({ event: { toolName: 'exec', toolCallId: 'new-tool', runId: 'aged-run' }, ctx: { runId: 'aged-run' }, pluginConfig: toolConfig });
+await agedClock.advance(4_999);
+assert.equal(agedDeliveries.length, 1, 'old turn age must not trigger an immediate wait card');
+await agedClock.advance(1);
+assert.equal(agedDeliveries.filter((item) => item.kind === 'wait').length, 1);
+
 const capacityClock = createFakeClock();
 const capacity = createTurnEnforcement({
   deliver: async () => {},
@@ -245,6 +353,9 @@ multi.clear();
 capacity.clear();
 timeoutEnforcement.clear();
 failureEnforcement.clear();
+timerCap.clear();
+progress.clear();
+aged.clear();
 assert.equal(clock.pending(), 0);
 
 console.log('turn-enforcement tests passed');

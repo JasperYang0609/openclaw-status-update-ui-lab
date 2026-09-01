@@ -56,7 +56,20 @@ export function checkRuntimeInspection(payload, label = 'runtime-inspect') {
   for (const hookName of REQUIRED_HOOKS) {
     if (!hookNames.has(hookName)) fail(`${label}: missing runtime hook '${hookName}'`);
   }
-  return { label, hookNames: REQUIRED_HOOKS };
+  if (payload?.policy?.allowPromptInjection !== true) {
+    fail(`${label}: policy.allowPromptInjection must be true`);
+  }
+  if (payload?.policy?.allowConversationAccess !== true) {
+    fail(`${label}: policy.allowConversationAccess must be true`);
+  }
+  return {
+    label,
+    hookNames: REQUIRED_HOOKS,
+    permissions: {
+      allowPromptInjection: true,
+      allowConversationAccess: true,
+    },
+  };
 }
 
 function effectiveTools(payload) {

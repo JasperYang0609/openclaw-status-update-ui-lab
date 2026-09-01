@@ -1,6 +1,6 @@
 # Status Update UI Lab v0.3.0 Runtime Enforcement Design
 
-Date: 2026-09-01  
+Date: 2026-09-01
 Status: approved by Jasper; conversation-hook permission amendment approved 2026-09-01
 Target release: `v0.3.0`
 
@@ -103,8 +103,13 @@ Add these validated plugin settings:
 - `autoWaitMessage`: default `狀態更新：目前仍在等待這個步驟完成；完成後會立即驗證結果並繼續。`
 - `turnStateMaxEntries`: default `1000`; allowed range `100`–`10000`.
 - `turnStateTtlMs`: default `600000`; allowed range `60000`–`3600000`.
+- `turnToolTimerMaxEntries`: default `64`; allowed range `1`–`1000`.
 
 Automatic messages are static operator-controlled strings. They must not interpolate user prompts, tool inputs, paths, errors, model reasoning, or external content.
+
+Automatic route reconstruction mirrors OpenClaw's external delivery shapes: Discord direct routes use `user:<id>`, Discord channel routes use `channel:<id>`, and Telegram topics retain the base chat target plus a separate `threadId`. Unknown peer kinds, malformed thread suffixes, or conflicts between Session and typed-hook route metadata must skip delivery.
+
+The long-tool threshold starts when each individual tool starts. Prior turn age must never cause a newly started tool to emit an immediate waiting card.
 
 `prompt` mode keeps automatic system guidance but does not auto-send cards. `off` preserves callable-tool-only behavior for operators who intentionally opt out. The major-version behavior change is documented prominently in release notes and rollback instructions.
 

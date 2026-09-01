@@ -1,8 +1,8 @@
 import { executeStatusUpdateUi } from "./delivery.js";
 import { buildPromptGuidance, createTurnEnforcement } from "./turn-enforcement.js";
 
-export function registerStatusUpdateUiPlugin(api) {
-  const enforcement = createTurnEnforcement({
+export function registerStatusUpdateUiPlugin(api, { enforcement: providedEnforcement } = {}) {
+  const enforcement = providedEnforcement ?? createTurnEnforcement({
     deliver: async ({ ctx, message }) => executeStatusUpdateUi({ api, ctx, params: { message } }),
   });
 
@@ -24,9 +24,7 @@ export function registerStatusUpdateUiPlugin(api) {
       },
     },
     async execute(_toolCallId, params) {
-      const result = await executeStatusUpdateUi({ api, ctx, params });
-      if (!result?.isError) enforcement.noteProgress({ ctx, pluginConfig: api.pluginConfig });
-      return result;
+      return await executeStatusUpdateUi({ api, ctx, params });
     },
   }), { name: "status_update_ui" });
 
@@ -47,7 +45,9 @@ export function registerStatusUpdateUiPlugin(api) {
 
   api.on("before_tool_call", (event, ctx) => {
     try {
-      enforcement.beforeTool({ event, ctx, pluginConfig: api.pluginConfig });
+      if (event?.toolName !== "status_update_ui") {
+        enforcement.beforeTool({ event, ctx, pluginConfig: api.pluginConfig });
+      }
     } catch {
       // Status instrumentation must never block the underlying tool call.
     }
@@ -55,7 +55,11 @@ export function registerStatusUpdateUiPlugin(api) {
 
   api.on("after_tool_call", (event, ctx) => {
     try {
-      enforcement.afterTool({ event, ctx, pluginConfig: api.pluginConfig });
+      if (event?.toolName === "status_update_ui") {
+        enforcement.noteProgress({ event, ctx, pluginConfig: api.pluginConfig });
+      } else {
+        enforcement.afterTool({ event, ctx, pluginConfig: api.pluginConfig });
+      }
     } catch {
       // Status instrumentation must never alter the tool result.
     }

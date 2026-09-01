@@ -61,11 +61,32 @@ const runtimeInspection = {
     hookNames: ['before_agent_run', 'before_prompt_build', 'before_tool_call', 'after_tool_call'],
   },
   typedHooks: [],
+  policy: {
+    allowPromptInjection: true,
+    allowConversationAccess: true,
+  },
 };
 assert.equal(checkRuntimeInspection(runtimeInspection).hookNames.length, 4);
 assert.throws(
-  () => checkRuntimeInspection({ plugin: { id: 'status-update-ui-lab', hookNames: ['before_prompt_build'] } }),
+  () => checkRuntimeInspection({
+    plugin: { id: 'status-update-ui-lab', hookNames: ['before_prompt_build'] },
+    policy: { allowPromptInjection: true, allowConversationAccess: true },
+  }),
   /missing runtime hook/,
+);
+assert.throws(
+  () => checkRuntimeInspection({
+    ...runtimeInspection,
+    policy: { allowPromptInjection: false, allowConversationAccess: true },
+  }),
+  /allowPromptInjection must be true/,
+);
+assert.throws(
+  () => checkRuntimeInspection({
+    ...runtimeInspection,
+    policy: { allowPromptInjection: true, allowConversationAccess: false },
+  }),
+  /allowConversationAccess must be true/,
 );
 assert.throws(
   () => queryEffectiveInventory('agent:test:discord:channel:fixture', 'definitely-not-a-real-openclaw-command'),
