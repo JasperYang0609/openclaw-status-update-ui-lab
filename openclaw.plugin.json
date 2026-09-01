@@ -3,7 +3,7 @@
   "kind": "tools",
   "name": "Status Update UI Lab",
   "description": "Runtime-enforced UI status cards for channel turns, with safe one-shot long-tool waiting updates.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "contracts": {
     "tools": [
       "status_update_ui"
