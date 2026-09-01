@@ -81,6 +81,30 @@ injectedHooks.get('before_tool_call')({ toolName: 'exec', runId: 'run-exec' }, {
 injectedHooks.get('after_tool_call')({ toolName: 'exec', runId: 'run-exec' }, { runId: 'run-exec' });
 assert.deepEqual(enforcementCalls, ['noteProgress', 'beforeTool', 'afterTool']);
 
+const operationalLogs = [];
+const loggingHooks = new Map();
+registerStatusUpdateUiPlugin({
+  pluginConfig: {},
+  logger: { info(message) { operationalLogs.push(message); } },
+  registerTool() {},
+  on(name, handler) { loggingHooks.set(name, handler); },
+}, { enforcement: {
+  async start() {
+    return { attempted: true, deliveryState: 'confirmed' };
+  },
+  beforeTool() {},
+  afterTool() {},
+  noteProgress() {},
+} });
+const loggedPass = await loggingHooks.get('before_agent_run')({
+  prompt: 'private prompt content',
+}, {});
+assert.deepEqual(loggedPass, { outcome: 'pass' });
+assert.deepEqual(operationalLogs, [
+  'status-update-ui-lab: auto-start attempted=true reason=none delivery=confirmed',
+]);
+assert.doesNotMatch(operationalLogs[0], /private prompt content/);
+
 const manifest = JSON.parse(fs.readFileSync(new URL('../openclaw.plugin.json', import.meta.url), 'utf8'));
 assert.equal(manifest.version, '0.3.0');
 assert.deepEqual(manifest.configSchema.properties.enforcementMode.enum, ['off', 'prompt', 'hybrid']);

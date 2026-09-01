@@ -30,7 +30,10 @@ export function registerStatusUpdateUiPlugin(api, { enforcement: providedEnforce
 
   api.on("before_agent_run", async (event, ctx) => {
     try {
-      await enforcement.start({ event, ctx, pluginConfig: api.pluginConfig });
+      const result = await enforcement.start({ event, ctx, pluginConfig: api.pluginConfig });
+      api.logger?.info?.(
+        `status-update-ui-lab: auto-start attempted=${result?.attempted === true} reason=${result?.reason ?? "none"} delivery=${result?.deliveryState ?? "none"}`,
+      );
     } catch {
       // This conversation hook is fail-closed in OpenClaw, so always contain
       // plugin failures and explicitly pass the normal agent run.

@@ -259,8 +259,17 @@ export function createTurnEnforcement({
       message: config.autoStartMessage,
       kind: "start",
     });
-    await settleWithin(delivery, startDeliveryTimeoutMs, setTimeoutFn, clearTimeoutFn);
-    return { attempted: true };
+    const settled = await settleWithin(delivery, startDeliveryTimeoutMs, setTimeoutFn, clearTimeoutFn);
+    return {
+      attempted: true,
+      deliveryState: settled.timedOut
+        ? "timeout"
+        : settled.failed
+          ? "failed"
+          : settled.value?.isError
+            ? "tool-error"
+            : "confirmed",
+    };
   }
 
   function noteProgress({ event = {}, ctx = {}, pluginConfig = {} } = {}) {

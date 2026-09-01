@@ -150,6 +150,7 @@ Notes:
 - `autoWaitAfterMs=0` disables the automatic waiting card. Non-zero values are bounded to 5–60 seconds.
 - Turn state is memory-only, bounded, and discarded on Gateway restart.
 - Per-run simultaneous waiting timers are separately bounded to 1–1,000 (default 64); overflow skips extra automatic wait cards without blocking tools.
+- Automatic waiting cards require the tool call to pass through OpenClaw's typed `before_tool_call` / `after_tool_call` hooks. Provider- or harness-internal tools that OpenClaw cannot observe still receive the static model guidance, but cannot be runtime-timed by this plugin.
 
 ## Unknown-delivery safety
 
@@ -234,5 +235,7 @@ After upgrade, do not declare a customer installation complete until all of thes
 - A tool error exposes no raw error/path in automatic cards and the final answer still arrives.
 - A Gateway restart and fresh `/new` retain enforcement.
 - Two-channel/thread smoke shows no cross-route delivery.
+
+For Codex or another external harness, treat the automatic start card as the hard guarantee. Verify whether that harness exposes nested tool lifecycle events before claiming automatic waiting-card coverage; the injected event-based status guidance remains the fallback when it does not.
 
 Immediate behavior rollback: set `enforcementMode` to `prompt` or `off`, then restart Gateway. Full package rollback: reinstall the pinned `v0.2.2` artifact and restore its matching config. Do not delete Sessions or messages during rollback.

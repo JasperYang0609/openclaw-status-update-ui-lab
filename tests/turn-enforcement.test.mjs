@@ -149,6 +149,7 @@ const [first, duplicate] = await Promise.all([
 ]);
 assert.equal(deliveries.length, 1);
 assert.ok([first, duplicate].some((result) => result.attempted));
+assert.ok([first, duplicate].some((result) => result.deliveryState === 'confirmed'));
 assert.ok([first, duplicate].some((result) => result.reason === 'already-claimed'));
 assert.equal(deliveries[0].message, enforcementDefaults.DEFAULT_AUTO_START_MESSAGE);
 assert.equal(deliveries[0].ctx.deliveryContext.to, 'channel:123');
@@ -338,15 +339,19 @@ const timeoutEnforcement = createTurnEnforcement({
 });
 const timeoutStart = timeoutEnforcement.start({ event: beforeEvent(), ctx: hookCtx({ runId: 'timeout' }) });
 await timeoutClock.advance(10);
-assert.equal((await timeoutStart).attempted, true, 'a hung status send must not block the agent run indefinitely');
+const timeoutResult = await timeoutStart;
+assert.equal(timeoutResult.attempted, true, 'a hung status send must not block the agent run indefinitely');
+assert.equal(timeoutResult.deliveryState, 'timeout');
 
 const failureEnforcement = createTurnEnforcement({
   deliver: async () => { throw new Error('private adapter failure'); },
 });
-assert.equal((await failureEnforcement.start({
+const failureResult = await failureEnforcement.start({
   event: beforeEvent(),
   ctx: hookCtx({ runId: 'delivery-failure' }),
-})).attempted, true);
+});
+assert.equal(failureResult.attempted, true);
+assert.equal(failureResult.deliveryState, 'failed');
 
 enforcement.clear();
 multi.clear();
