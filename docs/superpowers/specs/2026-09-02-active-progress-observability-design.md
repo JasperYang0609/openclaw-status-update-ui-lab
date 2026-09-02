@@ -1,7 +1,7 @@
 # Status Update UI Lab Active-Progress Observability Design
 
 Date: 2026-09-02
-Status: approved in conversation by Jasper; written-spec review pending
+Status: written spec approved by Jasper; local implementation complete, release gate pending
 Baseline: `v0.3.1` plus client parity guide commit `4f8c6197e780dd5d8b79a414371d2a51f5481130`
 Target release: `v0.4.0`
 
