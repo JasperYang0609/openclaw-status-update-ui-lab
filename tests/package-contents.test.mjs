@@ -36,4 +36,13 @@ for (const testFile of testFiles) {
   );
 }
 
+for (const requiredPath of [
+  "scripts/status-ui-preflight.mjs",
+  "scripts/status-ui-postinstall-check.mjs",
+  "scripts/install_agent_hook.py",
+  "docs/postinstall-evidence.example.json",
+]) {
+  assert.ok(packedPaths.has(requiredPath), `release package must include ${requiredPath}`);
+}
+
 console.log(`package contents tests passed (${testFiles.length} test files)`);

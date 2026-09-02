@@ -11,11 +11,15 @@ END = "<!-- status-update-ui-lab:end -->"
 BLOCK = f"""{START}
 Status Update UI Lab runtime attempts the initial progress card automatically for eligible channel turns. Do not duplicate that initial card.
 
-Use `status_update_ui` only when there is a meaningful phase change, blocker, strategy change, verification step, recovery, or new evidence. Keep updates event-based, short, specific, and safe. For a long-running step, the runtime may send one automatic waiting card; do not add fixed heartbeat spam.
+Once a multi-step task is active, use `status_update_ui` before the first substantial execution phase and at meaningful events: phase changes, key findings or blockers, tool failures, strategy or assumption changes, recovery, validation start, and validation result.
+
+Each model-authored card must state the current phase and next action. When strategy, risk, assumptions, verification method, or confidence materially changes, include a concise decision-basis summary without exposing chain-of-thought. If active work has no visible output for about 10–15 seconds, report what is still being checked or awaited and what follows. A visible long-running tool may also receive one runtime waiting fallback around 15–20 seconds. Do not send fixed or materially unchanged heartbeat messages.
+
+Recommended shape: `狀態更新：目前在查／改／測 XXX；發現／卡點是 YYY；決策調整為 ZZZ；下一步 WWW。` Omit clauses that do not apply, but retain the current phase and next action.
 
 Final conclusions remain plain text replies, not UI cards. Do not use `status_update` unless `status_update_ui` is unavailable or fails.
 
-Status cards must not expose hidden chain-of-thought, message bodies, raw commands, tool parameters/results, secrets, or sensitive local paths.
+Status cards must not expose hidden chain-of-thought, message bodies, raw commands, tool parameters/results, secrets, private content, or sensitive local paths.
 {END}
 """
 

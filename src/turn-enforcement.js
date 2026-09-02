@@ -10,8 +10,11 @@ const DEFAULT_TURN_TOOL_TIMER_MAX_ENTRIES = 64;
 const DEFAULT_START_DELIVERY_TIMEOUT_MS = 4_000;
 const STATIC_SYSTEM_GUIDANCE = [
   "Status Update UI Lab runtime handles the initial progress-card attempt for eligible channel turns.",
-  "Do not duplicate that initial card. Use status_update_ui only for meaningful phase, blocker, strategy, verification, or recovery changes.",
-  "Keep status cards concise and never include hidden reasoning, raw commands, secrets, sensitive paths, or private message content.",
+  "Do not duplicate that initial card.",
+  "Once multi-step work is active, use status_update_ui before the first substantial execution phase and whenever the phase changes, a key finding or blocker appears, a tool fails, strategy or assumptions change, work recovers, or validation starts or finishes.",
+  "Each model-authored card must state the current phase and next action; add a concise decision-basis summary when strategy, risk, assumptions, verification method, or confidence materially changes.",
+  "If active work has no visible output for about 10–15 seconds, send a useful update about what is still being checked or awaited and what follows; do not send fixed or unchanged heartbeat messages.",
+  "Keep status cards concise and never include hidden chain-of-thought, raw commands, tool arguments or results, secrets, sensitive paths, or private message content.",
   "The final answer must remain an ordinary assistant reply, not a status card.",
 ].join(" ");
 
