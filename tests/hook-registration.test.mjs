@@ -106,7 +106,7 @@ assert.deepEqual(operationalLogs, [
 assert.doesNotMatch(operationalLogs[0], /private prompt content/);
 
 const manifest = JSON.parse(fs.readFileSync(new URL('../openclaw.plugin.json', import.meta.url), 'utf8'));
-assert.equal(manifest.version, '0.3.1');
+assert.equal(manifest.version, '0.4.0');
 assert.deepEqual(manifest.configSchema.properties.enforcementMode.enum, ['off', 'prompt', 'hybrid']);
 assert.equal(manifest.configSchema.properties.autoWaitAfterMs.minimum, 0);
 assert.equal(manifest.configSchema.properties.turnStateTtlMs.maximum, 3_600_000);

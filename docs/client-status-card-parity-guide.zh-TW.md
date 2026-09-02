@@ -17,15 +17,14 @@
 ## 已驗證的安賽基準
 
 - OpenClaw：`2026.7.1-2`
-- Status Update UI Lab runtime：`v0.3.0`
-- 公開最新版：`v0.3.1`
-- `v0.3.1` 只是發布包自我測試修正，runtime 行為與 `v0.3.0` 相同。
+- Status Update UI Lab 目標版本：`v0.4.0`
+- `v0.4.0` 保留 v0.3.x runtime 首卡與可觀測長工具等待卡，新增執行中進度契約與兩層安裝自檢。
 - Plugin 狀態：`loaded`
 - 工具：`status_update_ui`
 - Typed hooks：`before_agent_run`、`before_prompt_build`、`before_tool_call`、`after_tool_call`
 - Hook 權限：`allowPromptInjection=true`、`allowConversationAccess=true`
 
-`v0.3.1` 要求 OpenClaw `2026.7.1-2` 或更新版本。若客戶版本較舊，不要直接套用本設定。
+`v0.4.0` 要求 OpenClaw `2026.7.1-2` 或更新版本。若客戶版本較舊，不要直接套用本設定。
 
 ## 建議的 Plugin 設定
 
@@ -101,13 +100,14 @@
 
 ## 必須加入 Agent instructions 的事件判斷規則
 
-把以下 marker block 放入該客戶實際 agent 每回合一定會載入的 `AGENTS.md`。若安裝包內的 `scripts/install_agent_hook.py` 可用，優先使用該冪等腳本；否則人工合併此區塊。
+把以下 marker block 放入該客戶實際 agent 每回合一定會載入的 `AGENTS.md`。必須優先執行安裝包內的 `scripts/install_agent_hook.py`，確保內容與目前版本完全一致且冪等；下方為行為摘要，不應取代 bundled canonical marker。
 
 ```text
 <!-- status-update-ui-lab:start -->
 Status Update UI Lab runtime 會在符合條件的頻道回合自動嘗試送出第一張進度卡；不要重複送同一張開工卡。
 
 只有在下列事件發生時才主動呼叫 status_update_ui：
+- 多步驟任務即將進入第一個實質執行階段；
 - 開始新的明確階段；
 - 工具批次完成，且結果改變下一步；
 - 發現關鍵線索、風險或 blocker；
@@ -120,10 +120,10 @@ Status Update UI Lab runtime 會在符合條件的頻道回合自動嘗試送出
 
 連續發生有意義的變化時，狀態卡通常至少間隔 5–10 秒。沒有新狀況時不要為了湊頻率發卡；同一等待狀態不要固定心跳重複。
 
-狀態卡只能公開：目前階段、已確認的狀況、改用方式與下一步。不得公開 chain-of-thought、完整內部推理、訊息內容、raw commands、工具參數／結果、秘密、敏感路徑或客戶隱私。
+每張模型主動卡至少要有「目前階段＋下一步」。策略、假設、風險、驗證方式或信心明顯改變時，另加精簡決策依據摘要。狀態卡只能公開已確認的狀況與足以讓使用者判斷的決策摘要，不得公開 chain-of-thought、完整內部推理、訊息內容、raw commands、工具參數／結果、秘密、敏感路徑或客戶隱私。
 
 狀態卡保持短、具體、使用繁體中文。建議格式：
-狀態更新：目前在查／改／測 XXX；發現或卡點是 YYY；下一步 ZZZ。
+狀態更新：目前在查／改／測 XXX；發現或卡點是 YYY；決策調整為 ZZZ；下一步 WWW。
 
 最後正式結論必須用一般 assistant reply，不得包成狀態卡。status_update_ui 失敗時，仍要完成正常回覆；除非 status_update_ui 不可用或失敗，不要改用 status_update。
 <!-- status-update-ui-lab:end -->
@@ -198,15 +198,25 @@ Status Update UI Lab runtime 會在符合條件的頻道回合自動嘗試送出
 
 ## 驗收判定
 
-只有以下全部成立才能標記 `PASS`：
+只有 deterministic preflight 與 live behavior evidence 兩層都通過，才能標記安裝完成：
 
 - 首卡早於正常答案，且沒有重複首卡。
 - 15 秒以上的可觀測工具有一次等待卡，沒有固定 heartbeat 洗頻。
 - 多階段任務有事件型更新，不只首卡與最後答案。
+- 模型主動卡包含目前階段與下一步；blocker／策略改變卡包含精簡決策摘要；驗證開始與結果分開可見。
 - 最後結論維持普通訊息。
 - 原有工具、頻道與 Plugin 權限沒有被覆蓋。
 - 卡片未洩漏命令、錯誤、秘密、路徑、訊息內容或客戶資料。
 - Fresh Session、Gateway restart 與跨 route 驗證均通過。
+
+安裝包提供兩支 read-only 自檢：
+
+- `scripts/status-ui-preflight.mjs`：查版本一致、runtime hooks／權限、marker 唯一且完整、工具 owner、安裝前後工具清單與 harness 覆蓋。
+- `scripts/status-ui-postinstall-check.mjs`：讀取人工去識別化的 live evidence，拒絕只靠卡片數量、缺少下一步／決策摘要、缺少驗證類別、敏感內容與不實的 harness 覆蓋聲明。
+
+必須保存安裝前與安裝後的去識別化 `tools.effective` JSON，並把 expected、installed metadata、runtime inspect、實際 AGENTS、前後工具清單與 harness coverage 一起交給 preflight。完成 isolated live smoke 後，再以 `docs/postinstall-evidence.example.json` 為格式建立去識別化 evidence，執行 post-install checker。不要把 token、完整 transcript、原始命令或敏感路徑放入 evidence。
+
+Codex 或外部 harness 若無法完整暴露 typed tool lifecycle，應標示 `LIMITED`，並以模型主動的 phase／blocker／strategy／validation 卡通過 fallback 驗收；不得因首卡正常就宣稱長工具 runtime timing 完整支援。
 
 若自動首卡正常、但長工具沒有等待卡，先確認該工具是否通過 typed lifecycle hooks；不要直接把 `autoWaitAfterMs` 調得更短。若首卡與 `status_update_ui` 都正常、但階段更新很少，優先檢查 `AGENTS.md` 是否真的被該 agent／Session 載入。
 

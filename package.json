@@ -1,8 +1,8 @@
 {
   "name": "openclaw-status-update-ui-lab",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "type": "module",
-  "description": "Standalone OpenClaw status update UI wrapper for comfortable one-shot progress cards.",
+  "description": "OpenClaw UI status cards with bounded runtime enforcement and event-driven active-progress guidance.",
   "license": "UNLICENSED",
   "private": true,
   "peerDependencies": {
@@ -28,8 +28,9 @@
     "tests"
   ],
   "scripts": {
-    "check": "node --check index.js && node --check src/plugin.js && node --check src/core.js && node --check src/delivery.js && node --check src/delivery-guard.js && node --check src/turn-enforcement.js",
-    "test": "node tests/title-resolution.test.mjs && node tests/identity-resolution.test.mjs && node tests/delivery-fallback.test.mjs && node tests/delivery-dedup.test.mjs && node tests/turn-enforcement.test.mjs && node tests/hook-registration.test.mjs && node tests/install-agent-hook.test.mjs && node tests/capability-preflight.test.mjs && node tests/package-contents.test.mjs",
-    "preflight": "node scripts/status-ui-preflight.mjs"
+    "check": "node --check index.js && node --check src/plugin.js && node --check src/core.js && node --check src/delivery.js && node --check src/delivery-guard.js && node --check src/turn-enforcement.js && node --check scripts/status-ui-preflight.mjs && node --check scripts/status-ui-postinstall-check.mjs",
+    "test": "node tests/title-resolution.test.mjs && node tests/identity-resolution.test.mjs && node tests/delivery-fallback.test.mjs && node tests/delivery-dedup.test.mjs && node tests/turn-enforcement.test.mjs && node tests/hook-registration.test.mjs && node tests/install-agent-hook.test.mjs && node tests/capability-preflight.test.mjs && node tests/postinstall-check.test.mjs && node tests/package-contents.test.mjs",
+    "preflight": "node scripts/status-ui-preflight.mjs",
+    "postinstall-check": "node scripts/status-ui-postinstall-check.mjs"
   }
 }

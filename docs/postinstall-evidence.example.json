@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "deterministic": {
+    "versionParity": "PASS",
+    "pluginLoaded": "PASS",
+    "hooksRegistered": "PASS",
+    "permissions": "PASS",
+    "toolOwnership": "PASS",
+    "toolInventoryPreserved": "PASS",
+    "markerIntegrity": "PASS",
+    "configValidation": "PASS",
+    "pluginDoctor": "PASS",
+    "gatewayRestart": "PASS",
+    "freshSession": "PASS"
+  },
+  "live": {
+    "cards": [
+      {
+        "category": "start",
+        "text": "狀態更新：任務已開始。",
+        "safeReview": "PASS",
+        "containsPrivateContent": false
+      },
+      {
+        "category": "phase",
+        "text": "狀態更新：目前在核對安裝狀態；下一步驗證有效工具。",
+        "hasCurrentPhase": true,
+        "hasNextAction": true,
+        "safeReview": "PASS",
+        "containsPrivateContent": false
+      },
+      {
+        "category": "strategy_change",
+        "text": "狀態更新：目前在核對版本；發現版本不一致，因此先停止驗收；下一步改用一致的安裝來源。",
+        "hasCurrentPhase": true,
+        "hasNextAction": true,
+        "hasDecisionSummary": true,
+        "safeReview": "PASS",
+        "containsPrivateContent": false
+      },
+      {
+        "category": "validation_start",
+        "text": "狀態更新：目前開始 fresh Session 驗證；下一步比對更新前後工具清單。",
+        "hasCurrentPhase": true,
+        "hasNextAction": true,
+        "safeReview": "PASS",
+        "containsPrivateContent": false
+      },
+      {
+        "category": "validation_result",
+        "text": "狀態更新：目前驗證完成且全部通過；下一步整理正式結論。",
+        "hasCurrentPhase": true,
+        "hasNextAction": true,
+        "safeReview": "PASS",
+        "containsPrivateContent": false
+      }
+    ],
+    "ordinaryFinalReply": "PASS",
+    "routeIsolation": "PASS",
+    "cardCountOnly": false,
+    "harnessCoverage": "PARTIAL",
+    "modelAuthoredFallback": "PASS",
+    "observableLongTool": {
+      "status": "NOT_RUN"
+    }
+  }
+}

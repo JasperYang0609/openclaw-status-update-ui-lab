@@ -67,6 +67,24 @@ assert.equal(resolveEnforcementConfig({ turnStateMaxEntries: 1 }).turnStateMaxEn
 assert.equal(resolveEnforcementConfig({ turnStateTtlMs: 1 }).turnStateTtlMs, 60_000);
 assert.equal(resolveEnforcementConfig({ turnToolTimerMaxEntries: 0 }).turnToolTimerMaxEntries, 1);
 assert.match(buildPromptGuidance({ enforcementMode: 'hybrid' }), /initial progress-card attempt/);
+const activeGuidance = buildPromptGuidance({ enforcementMode: 'hybrid' });
+for (const requirement of [
+  /first substantial execution phase/,
+  /phase changes/,
+  /key finding or blocker/,
+  /tool fails/,
+  /strategy or assumptions change/,
+  /validation starts or finishes/,
+  /current phase and next action/,
+  /decision-basis summary/,
+  /10–15 seconds/,
+  /do not send fixed or unchanged heartbeat/,
+  /hidden chain-of-thought/,
+  /tool arguments or results/,
+]) assert.match(activeGuidance, requirement);
+for (const forbidden of ['user prompt', 'message history', 'customer content']) {
+  assert.equal(activeGuidance.includes(forbidden), false);
+}
 assert.equal(buildPromptGuidance({ enforcementMode: 'off' }), '');
 
 assert.deepEqual(resolveAutomaticRoute(beforeEvent(), hookCtx()), {

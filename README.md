@@ -34,11 +34,13 @@ Explore an optional UI/UX layer for prettier one-shot status messages first. Edi
 - Discord first, but keep a portable text fallback for every channel.
 
 
-## v0.3.0 behavior
+## v0.4.0 behavior
 
 - Eligible user-triggered channel turns get one automatic start-card attempt before model inference.
 - A non-status tool that exceeds the configured threshold gets at most one automatic waiting card per run.
-- The model keeps `status_update_ui` for meaningful phase, blocker, strategy, verification, or recovery changes.
+- For active multi-step work, the installed guidance requires model-authored cards before substantial execution and on phase, finding/blocker, failure, strategy, recovery, and validation events.
+- Model-authored cards state the current phase and next action, plus a concise decision-basis summary when assumptions, strategy, risk, validation method, or confidence changes.
+- Around 10–15 seconds of active silence is a prompt to send useful progress, not a fixed heartbeat. Unchanged status is not repeated.
 - Automatic text is operator-controlled and never interpolates prompts, messages, tool parameters/results, paths, or errors.
 - Cron, heartbeat, background, route-less, conflicting-route, and missing-run contexts skip automatic delivery.
 - Status failures never block the normal final answer.
@@ -96,7 +98,7 @@ Then allow the tool for the active tool profile and restart Gateway:
 }
 ```
 
-Both hook permissions are required for v0.3.0:
+Both hook permissions are required for v0.4.0:
 
 - `allowPromptInjection` permits the plugin to append one static system-guidance string.
 - `allowConversationAccess` permits registration of `before_agent_run`, which OpenClaw classifies as a conversation hook. The implementation reads only trusted account/route/run/Session metadata and never reads or retains `prompt`, `messages`, or `systemPrompt`. Tests use throwing proxies to enforce this boundary.
@@ -176,7 +178,7 @@ If the original `status_update` plugin is also installed, keep it as a fallback 
 
 ## Install-time agent hook
 
-v0.3.0 provides runtime enforcement. The marker block remains defense in depth so model-authored updates stay event-based across model switches and Session resets.
+v0.4.0 keeps runtime enforcement and expands the managed marker into the active-progress content contract. The marker remains required defense in depth so model-authored updates stay event-based across model switches and Session resets.
 
 Use the bundled helper:
 
@@ -189,10 +191,13 @@ The helper is idempotent: re-running it replaces only the marker block above. Fo
 The installed marker block enforces:
 
 - The model does not duplicate the runtime start card.
-- Later model-authored cards are event-based rather than fixed heartbeats.
+- Multi-step work reports its current phase and next action before substantial execution and after meaningful changes.
+- Findings, blockers, failures, strategy/assumption changes, recovery, and validation start/result produce distinct event-based cards.
+- Material decision changes include a concise basis summary without revealing hidden reasoning.
+- Active silence around 10–15 seconds may produce a useful update; fixed or unchanged heartbeats are forbidden.
 - UI cards are for in-progress status only; final conclusions stay plain text.
 - `status_update` is fallback only.
-- Cards must not expose chain-of-thought, raw commands, secrets, or sensitive paths.
+- Cards must not expose chain-of-thought, message bodies, raw commands, tool payloads, secrets, private content, or sensitive paths.
 
 ## Maintainer use of Codex
 
@@ -202,6 +207,7 @@ API-assisted maintenance should focus on safe UI behavior, regression tests, acc
 
 ## Releases
 
+- `v0.4.0` candidate: adds the active-progress event/content contract, version and marker parity checks, before/after tool-inventory preservation, honest harness-coverage classification, and semantic post-install acceptance evidence. It is not a published release until the separate release gate completes.
 - `v0.3.1`: packaging-only patch; the published `.tgz` now includes the test suite so the exact downloadable artifact can rerun `npm test`. Runtime behavior is unchanged from `v0.3.0`.
 - `v0.3.0`: adds metadata-only runtime start enforcement, one-shot long-tool waiting cards, bounded per-run state, static prompt guidance, opt-out modes, and explicit hook-permission gates. This release requires OpenClaw `2026.7.1-2` or newer hook fields.
 - `v0.2.2`: prevents automatic fallback after ambiguous platform dispatch failures, adds bounded in-process duplicate suppression isolated by Session and route, and adds concurrency/TTL/capacity regression coverage.
@@ -223,7 +229,28 @@ node scripts/status-ui-preflight.mjs \
   --session-key 'agent:main:subagent:CHILD_ID'
 ```
 
-The preflight calls `tools.effective` only. It never invokes `status_update_ui` and never sends a message. It fails closed when the tool is missing, owned by another plugin, the session is unavailable, or the Gateway query fails. A static-only PASS is not proof that native subagent binding works; supply both parent and child session keys for deployment acceptance.
+For a complete deterministic check, also supply the actual runtime inspection, installed marker, expected version, before/after effective-tool inventories, and harness classification:
+
+```bash
+node scripts/status-ui-preflight.mjs \
+  --expected-version 0.4.0 \
+  --installed-metadata-json installed-plugin.redacted.json \
+  --runtime-inspect-json runtime-inspect.redacted.json \
+  --agent-instructions AGENTS.md \
+  --effective-before-json tools-before.redacted.json \
+  --effective-after-json tools-after.redacted.json \
+  --harness-coverage-json harness-coverage.redacted.json
+```
+
+The preflight is read-only. It never invokes `status_update_ui` and never sends a message. It fails closed on version mismatch, stale/duplicate marker, missing hooks/permissions/ownership, or removed tools. Harness timing coverage is reported as `SUPPORTED`, `PARTIAL`, or `UNVERIFIED`; it is never inferred from a start card.
+
+After the isolated live smoke, record only sanitized category/timing outcomes in the evidence schema and evaluate it:
+
+```bash
+npm run postinstall-check -- customer-evidence.redacted.json
+```
+
+Use `docs/postinstall-evidence.example.json` as the schema example. The evaluator rejects card-count-only evidence, missing next actions or decision summaries, sensitive paths, raw commands, credential-shaped text, private-content flags, missing validation categories, duplicate runtime waits, and unsupported harness claims without a tested model-authored fallback. It does not read a Session transcript.
 
 ## Upgrade acceptance and rollback
 
@@ -234,9 +261,11 @@ After upgrade, do not declare a customer installation complete until all of thes
 - A short text turn shows one start card before the final answer.
 - A tool running beyond the threshold shows exactly one waiting card.
 - A tool error exposes no raw error/path in automatic cards and the final answer still arrives.
+- A multi-phase task produces a phase/next-step card, a controlled blocker or strategy-change card with a decision summary, and separate validation-start/result cards.
 - A Gateway restart and fresh `/new` retain enforcement.
 - Two-channel/thread smoke shows no cross-route delivery.
+- Deterministic preflight and redacted semantic post-install evidence both pass.
 
 For Codex or another external harness, treat the automatic start card as the hard guarantee. Verify whether that harness exposes nested tool lifecycle events before claiming automatic waiting-card coverage; the injected event-based status guidance remains the fallback when it does not.
 
-Immediate behavior rollback: set `enforcementMode` to `prompt` or `off`, then restart Gateway. Full package rollback: reinstall the pinned `v0.2.2` artifact and restore its matching config. Do not delete Sessions or messages during rollback.
+Immediate behavior rollback: set `enforcementMode` to `prompt` or `off`, then restart Gateway. Full package rollback: reinstall the last verified release artifact and restore its matching config, marker, and captured tool policy. Do not delete Sessions or messages during rollback.
